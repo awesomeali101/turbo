@@ -5,7 +5,7 @@ pkgname=turbo-git
 # Optional prerelease suffix for version (letters/dots only, no hyphen). Example: _pre=beta
 _pre=""
 _pkgname=aurwrap
-pkgver=aa2453b
+pkgver=0.1.r6.gfe169ba
 pkgrel=1
 pkgdesc="Turbo: AUR helper in Rust that wraps pacman (paru-like): edit, build in cache, single pacman -U"
 arch=('x86_64' 'aarch64')
@@ -23,25 +23,24 @@ sha256sums=('SKIP')
 
 pkgver() {
   cd "${srcdir}/${pkgname}"
-  # Try git describe (tags), fallback to commit count + short hash
-  if git describe --tags --long --always >/dev/null 2>&1; then
-    # Convert v0.1.0-12-gabcdef0 -> 0.1.0[pre].r12.gabcdef0
-    ver=$(git describe --tags --long --always \
-      | sed -E 's/^v?([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)-g([0-9a-f]+)$/\1.r\2.g\3/')
-  else
-    ver=$(printf "0.0.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)")
-  fi
+  # Preserve prefix of declared pkgver (everything before the last dot); only update the last segment
+  local prefix rev hash tag
+  prefix="${pkgver%.*}"
   if [[ -n "${_pre}" ]]; then
-    # Insert suffix right after the semantic version prefix
-    printf "%s\n" "$ver" | sed -E "s/^([0-9]+(\.[0-9]+){1,2})/\1${_pre}/"
-  else
-    printf "%s\n" "$ver"
+    prefix="${prefix}${_pre}"
   fi
+  if tag=$(git describe --tags --abbrev=0 2>/dev/null); then
+    rev=$(git rev-list --count "${tag}"..HEAD)
+  else
+    rev=$(git rev-list --count HEAD)
+  fi
+  hash=$(git rev-parse --short HEAD)
+  printf "%s.r%s.g%s\n" "${prefix}" "${rev}" "${hash}"
 }
 
 build() {
   cd "${srcdir}/${pkgname}"
-  export RUSTFLAGS="-C target-cpu=native -C opt-level=3 -C codegen-units=1"
+  export RUSTFLAGS="-C target-cpu=native -C llvm-args=-cost-kind=latency -C opt-level=3 -C codegen-units=1"
   cargo build --release
 }
 
