@@ -7,8 +7,7 @@ TEMP_DIR="${CACHE_DIR}/temp"
 CONF_FILE="${ROOT_DIR}/conf"
 
 mkdir -p "${TEMP_DIR}"
-sudo ln -s ./turbo-fm /usr/bin/turbo-fm
-
+sudo cp "./turbo-fm" /usr/bin/turbo-fm
 
 if [[ ! -f "${CONF_FILE}" ]]; then
   cat >"${CONF_FILE}" <<'EOF'
@@ -22,7 +21,7 @@ mirror=aur
 # mirror_base: when mirror=github, base URL for repos
 # mirror_base=https://github.com/archlinux-aur
 EOF
-sudo ln -sf "$(pwd)/turbo-fm" /usr/local/bin/turbo-fm
+
   echo "Created default conf at ${CONF_FILE}"
 else
   echo "Conf already exists at ${CONF_FILE}"
