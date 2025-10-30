@@ -158,10 +158,19 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8) -> Result<()> {
         }
     }
 
-    // Build
+    // Verify sources (and import keys) then build
     for base in &pkgbases {
         if clone_failed.contains(base) { continue; }
-        match makepkg_build(&temp_path.join(base)) {
+        let dir = temp_path.join(base);
+        // Try to import valid PGP keys (best effort)
+        let _ = import_validpgpkeys(&dir);
+        // Verify sources before committing to a long build
+        if let Err(e) = verify_sources(&dir) {
+            eprintln!("Source verification failed for {}: {}", base, e);
+            build_failed.push(base.clone());
+            continue;
+        }
+        match makepkg_build(&dir) {
             Ok(()) => built_ok.push(base.clone()),
             Err(e) => {
                 eprintln!("Build failed for {}: {}", base, e);
@@ -246,10 +255,17 @@ fn handle_sync(cfg: &Config, pkgs: &[String]) -> Result<()> {
             }
         }
 
-        // Build each in order
+        // Verify sources then build each in order
         for base in &pkgbases {
             if clone_failed.contains(base) { continue; }
-            match makepkg_build(&temp_path.join(base)) {
+            let dir = temp_path.join(base);
+            let _ = import_validpgpkeys(&dir);
+            if let Err(e) = verify_sources(&dir) {
+                eprintln!("Source verification failed for {}: {}", base, e);
+                build_failed.push(base.clone());
+                continue;
+            }
+            match makepkg_build(&dir) {
                 Ok(()) => built_ok.push(base.clone()),
                 Err(e) => { eprintln!("Build failed for {}: {}", base, e); build_failed.push(base.clone()); }
             }
