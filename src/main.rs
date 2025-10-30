@@ -118,21 +118,33 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8) -> Result<()> {
         return Ok(());
     }
 
-    // Resolve dependencies and build order for selected updates
+    // Resolve dependencies and build order for selected updates (by package names)
     let order = aur::resolve_build_order(&client, &selection)?;
     let temp_path = cfg.temp_dir();
     clean_dir_contents(&temp_path)?; // start with a clean temp each run
 
     // Track failures
-    let mut clone_failed: Vec<String> = vec![];
-    let mut build_failed: Vec<String> = vec![];
-    let mut built_ok: Vec<String> = vec![];
+    let mut clone_failed: Vec<String> = vec![];  // track by pkgbase
+    let mut build_failed: Vec<String> = vec![];  // track by pkgbase
+    let mut built_ok: Vec<String> = vec![];      // track by pkgbase
+
+    // Group targets by AUR pkgbase: only clone/build unique pkgbase repos
+    let info_for_order = aur::aur_info_batch(&client, order.clone())?; // name -> AurInfo
+    let mut seen_base: HashSet<String> = HashSet::new();
+    let mut pkgbases: Vec<String> = vec![];
+    for name in &order {
+        if let Some(info) = info_for_order.get(name) {
+            if seen_base.insert(info.pkgbase.clone()) {
+                pkgbases.push(info.pkgbase.clone());
+            }
+        }
+    }
 
     // Clone each, continue on error
-    for name in &order {
-        if let Err(e) = clone_aur_pkgs(cfg, &[name.clone()], &temp_path) {
-            eprintln!("Clone failed for {}: {}", name, e);
-            clone_failed.push(name.clone());
+    for base in &pkgbases {
+        if let Err(e) = clone_aur_pkgs(cfg, &[base.clone()], &temp_path) {
+            eprintln!("Clone failed for {}: {}", base, e);
+            clone_failed.push(base.clone());
         }
     }
 
@@ -141,19 +153,19 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8) -> Result<()> {
     if edit {
         open_file_manager(cfg, &temp_path)?;
         // After user returns, regenerate .SRCINFO for all
-        for name in &order {
-            regen_srcinfo(&temp_path.join(name))?;
+        for base in &pkgbases {
+            regen_srcinfo(&temp_path.join(base))?;
         }
     }
 
     // Build
-    for name in &order {
-        if clone_failed.contains(name) { continue; }
-        match makepkg_build(&temp_path.join(name)) {
-            Ok(()) => built_ok.push(name.clone()),
+    for base in &pkgbases {
+        if clone_failed.contains(base) { continue; }
+        match makepkg_build(&temp_path.join(base)) {
+            Ok(()) => built_ok.push(base.clone()),
             Err(e) => {
-                eprintln!("Build failed for {}: {}", name, e);
-                build_failed.push(name.clone());
+                eprintln!("Build failed for {}: {}", base, e);
+                build_failed.push(base.clone());
             }
         }
     }
@@ -200,15 +212,28 @@ fn handle_sync(cfg: &Config, pkgs: &[String]) -> Result<()> {
         let build_order = aur::resolve_build_order(&client, &available)?;
         let temp_path = cfg.temp_dir();
         clean_dir_contents(&temp_path)?;
-        // Track failures
+        // Track failures by pkgbase
         let mut clone_failed: Vec<String> = vec![];
         let mut build_failed: Vec<String> = vec![];
         let mut built_ok: Vec<String> = vec![];
-        // Clone each, continue on error
+
+        // Group by pkgbase: only clone unique bases
+        let info_for_order = aur::aur_info_batch(&client, build_order.clone())?; // name -> AurInfo
+        let mut seen_base: HashSet<String> = HashSet::new();
+        let mut pkgbases: Vec<String> = vec![];
         for name in &build_order {
-            if let Err(e) = clone_aur_pkgs(cfg, &[name.clone()], &temp_path) {
-                eprintln!("Clone failed for {}: {}", name, e);
-                clone_failed.push(name.clone());
+            if let Some(info) = info_for_order.get(name) {
+                if seen_base.insert(info.pkgbase.clone()) {
+                    pkgbases.push(info.pkgbase.clone());
+                }
+            }
+        }
+
+        // Clone each base, continue on error
+        for base in &pkgbases {
+            if let Err(e) = clone_aur_pkgs(cfg, &[base.clone()], &temp_path) {
+                eprintln!("Clone failed for {}: {}", base, e);
+                clone_failed.push(base.clone());
             }
         }
 
@@ -216,17 +241,17 @@ fn handle_sync(cfg: &Config, pkgs: &[String]) -> Result<()> {
         let edit = Confirm::new().with_prompt("Edit PKGBUILDs/source files in file manager before building?").default(false).interact()?;
         if edit {
             open_file_manager(cfg, &temp_path)?;
-            for name in &build_order {
-                regen_srcinfo(&temp_path.join(name))?;
+            for base in &pkgbases {
+                regen_srcinfo(&temp_path.join(base))?;
             }
         }
 
         // Build each in order
-        for name in &build_order {
-            if clone_failed.contains(name) { continue; }
-            match makepkg_build(&temp_path.join(name)) {
-                Ok(()) => built_ok.push(name.clone()),
-                Err(e) => { eprintln!("Build failed for {}: {}", name, e); build_failed.push(name.clone()); }
+        for base in &pkgbases {
+            if clone_failed.contains(base) { continue; }
+            match makepkg_build(&temp_path.join(base)) {
+                Ok(()) => built_ok.push(base.clone()),
+                Err(e) => { eprintln!("Build failed for {}: {}", base, e); build_failed.push(base.clone()); }
             }
         }
 
