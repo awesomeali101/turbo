@@ -34,7 +34,7 @@ fn main() -> Result<()> {
         .arg(Arg::new("sync").short('S').action(ArgAction::SetTrue).help("Sync / install mode (pacman -S ...)"))
         .arg(Arg::new("refresh").short('y').action(ArgAction::Count).help("Refresh databases (can be doubled, like -yy)"))
         .arg(Arg::new("sysupgrade").short('u').action(ArgAction::SetTrue).help("System upgrade"))
-        .arg(Arg::new("noconfirm").long("noconfirm").action(ArgAction::SetTrue).help("No confirm mode (pacman -U --noconfirm)"))
+        .arg(Arg::new("noconfirm").long("nocu").action(ArgAction::SetTrue).help("No confirm mode (pacman -U --noconfirm)"))
         .arg(Arg::new("args").num_args(0..).trailing_var_arg(true).allow_hyphen_values(true).help("Additional pacman-like args or package names"))
         .get_matches();
 
