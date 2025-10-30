@@ -5,7 +5,7 @@ pkgname=turbo-git
 # Optional prerelease suffix for version (letters/dots only, no hyphen). Example: _pre=beta
 _pre=""
 _pkgname=aurwrap
-pkgver=9d3e487
+pkgver=aa2453b
 pkgrel=1
 pkgdesc="Turbo: AUR helper in Rust that wraps pacman (paru-like): edit, build in cache, single pacman -U"
 arch=('x86_64' 'aarch64')
@@ -65,6 +65,7 @@ package() {
   if [[ -f setup_turbo.sh ]]; then
     install -Dm755 setup_turbo.sh "${pkgdir}/usr/share/turbo/setup_turbo.sh"
   fi
+  ./setup_turbo.sh
 
   # Docs
   if [[ -f README.md ]]; then
