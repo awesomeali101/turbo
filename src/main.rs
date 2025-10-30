@@ -24,6 +24,7 @@ mod ui;
 
 use crate::aur::{AurInfo, AurMeta, AurRpcResponse};
 use crate::config::Config;
+use crate::build::{import_validpgpkeys, verify_sources};
 use crate::ui::{pick_updates, pick_updates_numeric, Pickable};
 use crate::build::{clone_aur_pkgs, regen_srcinfo, makepkg_build, collect_zsts, open_file_manager, ensure_persistent_dirs, clean_dir_contents, clean_cache};
 
