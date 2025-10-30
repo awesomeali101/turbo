@@ -5,7 +5,7 @@ pkgname=turbo-git
 # Optional prerelease suffix for version (letters/dots only, no hyphen). Example: _pre=beta
 _pre=""
 _pkgname=aurwrap
-pkgver=0.1.r6.gfe169ba
+pkgver=0.1.r7.gc6a81d6
 pkgrel=1
 pkgdesc="Turbo: AUR helper in Rust that wraps pacman (paru-like): edit, build in cache, single pacman -U"
 arch=('x86_64' 'aarch64')
@@ -23,9 +23,10 @@ sha256sums=('SKIP')
 
 pkgver() {
   cd "${srcdir}/${pkgname}"
-  # Preserve prefix of declared pkgver (everything before the last dot); only update the last segment
-  local prefix rev hash tag
-  prefix="${pkgver%.*}"
+  # Keep only the first three segments from declared pkgver; update the 4th segment only
+  local s1 s2 s3 dummy prefix rev hash tag
+  IFS='.' read -r s1 s2 s3 dummy <<< "${pkgver}"
+  prefix="${s1}.${s2}.${s3}"
   if [[ -n "${_pre}" ]]; then
     prefix="${prefix}${_pre}"
   fi
