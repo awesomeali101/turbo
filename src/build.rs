@@ -6,27 +6,59 @@ use std::path::{Path, PathBuf};
 
 use crate::config::Config;
 
+use std::time::Duration;
+
+fn run_git_command(args: &[&str], timeout_secs: u64) -> Result<bool> {
+    let output = cmd("timeout", [&format!("{}s", timeout_secs), "git"]
+        .into_iter()
+        .chain(args.iter().cloned()))
+        .stderr_to_stdout()
+        .unchecked()
+        .run();
+
+    match output {
+        Ok(output) => Ok(output.status.success()),
+        Err(_) => Ok(false), // Timeout or other error
+    }
+}
+
 pub fn clone_aur_pkgs(cfg: &Config, pkgs: &[String], dest: &Path) -> Result<()> {
     fs::create_dir_all(dest)?;
+    
     for p in pkgs {
-        let url = if cfg.aur_mirror.to_lowercase() == "github" {
-            let base = cfg
-                .mirror_base
-                .as_deref()
-                .unwrap_or("https://github.com/archlinux-aur");
-            format!("{}/{}.git", base.trim_end_matches('/'), p)
-        } else {
-            format!("https://aur.archlinux.org/{}.git", p)
-        };
         let target = dest.join(p);
         if target.exists() {
             continue;
         }
-        let status = cmd("git", ["clone", &url, target.to_string_lossy().as_ref()])
-            .stderr_to_stdout()
-            .run()?;
-        if !status.status.success() {
-            return Err(anyhow!("git clone failed for {}", p));
+
+        if cfg.aur_mirror.to_lowercase() == "github" {
+            // For GitHub mirror, use shallow clone of the specific branch
+            let base = cfg
+                .mirror_base
+                .as_deref()
+                .unwrap_or("https://github.com/archlinux/aur");
+            let url = base.trim_end_matches('/');
+            
+            // Clone just the specific branch shallowly
+            println!("Cloning package {} from GitHub mirror...", p);
+            let success = run_git_command(
+                &["clone", "--depth", "1", "--single-branch", "--branch", p, url, target.to_string_lossy().as_ref()],
+                300 // 5 minute timeout
+            )?;
+            
+            if !success {
+                return Err(anyhow!("Failed to clone package {} from GitHub mirror. The package might not exist or the mirror might be unavailable.", p));
+            }
+        } else {
+            // Standard AUR clone
+            let url = format!("https://aur.archlinux.org/{}.git", p);
+            let status = cmd("git", ["clone", &url, target.to_string_lossy().as_ref()])
+                .stderr_to_stdout()
+                .run()?;
+                
+            if !status.status.success() {
+                return Err(anyhow!("git clone failed for {}", p));
+            }
         }
     }
     Ok(())
