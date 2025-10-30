@@ -18,6 +18,8 @@ pub struct AurMeta {
 pub struct AurInfo {
     #[serde(rename = "Name")]
     pub name: String,
+    #[serde(rename = "PackageBase")]
+    pub pkgbase: String,
     #[serde(rename = "Version")]
     pub version: String,
     #[serde(rename = "Depends")]

@@ -75,6 +75,40 @@ pub fn collect_zsts(root: &Path) -> Result<Vec<String>> {
     Ok(out)
 }
 
+pub fn verify_sources(pkgdir: &Path) -> Result<()> {
+    // Verify and fetch sources and signatures before heavy build
+    let sh = format!("cd {} && makepkg --verifysource --noconfirm", pkgdir.to_string_lossy());
+    let status = cmd("bash", ["-lc", &sh]).stderr_to_stdout().run()?;
+    if !status.status.success() {
+        return Err(anyhow!("makepkg --verifysource failed in {}", pkgdir.display()));
+    }
+    Ok(())
+}
+
+pub fn import_validpgpkeys(pkgdir: &Path) -> Result<()> {
+    // Use bash to source PKGBUILD and print validpgpkeys array, then import via gpg
+    let sh = format!(
+        "cd {} && set -a; source PKGBUILD >/dev/null 2>&1 || true; for k in \"${{validpgpkeys[@]}}\"; do echo $k; done",
+        pkgdir.to_string_lossy()
+    );
+    let out = cmd("bash", ["-lc", &sh]).stderr_to_stdout().read()?;
+    let mut keys: Vec<&str> = vec![];
+    for line in out.lines() {
+        let t = line.trim();
+        if !t.is_empty() { keys.push(t); }
+    }
+    if keys.is_empty() {
+        return Ok(());
+    }
+    let mut args: Vec<&str> = vec!["--keyserver", "hkps://keys.openpgp.org", "--recv-keys"];
+    for k in &keys { args.push(k); }
+    let status = cmd("gpg", args).stderr_to_stdout().run()?;
+    if !status.status.success() {
+        return Err(anyhow!("gpg --recv-keys failed for some keys in {}", pkgdir.display()));
+    }
+    Ok(())
+}
+
 pub fn ensure_persistent_dirs(cfg: &Config) -> Result<()> {
     fs::create_dir_all(cfg.temp_dir())?;
     Ok(())
