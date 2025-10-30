@@ -1,7 +1,7 @@
 # Turbo
 Just another AUR helper built in rust
 
-NOTE: Turbo is currently in beta, it is already very capable, but there may be undiscovered bugs. Be cautious.
+NOTE: Turbo is currently in beta, it is already very capable, but there may be undiscovered bugs and some missing features. Be cautious and use at your own risk. Feel free to open an issue if you find any bugs or have any suggestions.
 
 ## Installation
 ```bash
