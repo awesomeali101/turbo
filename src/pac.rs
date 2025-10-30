@@ -75,11 +75,21 @@ fn shell_escape(s: &str) -> String {
 }
 
 pub fn sudo_pacman_U(zsts: &[String]) -> Result<()> {
+    sudo_pacman_U_inner(zsts, false)
+}
+
+pub fn sudo_pacman_U_noconfirm(zsts: &[String]) -> Result<()> {
+    sudo_pacman_U_inner(zsts, true)
+}
+
+fn sudo_pacman_U_inner(zsts: &[String], noconfirm: bool) -> Result<()> {
     let mut args = vec!["-U"];
+    if noconfirm {
+        args.push("--noconfirm");
+    }
     for z in zsts {
         args.push(z.as_str());
     }
-    // Let user confirm y/n normally; don't pass --noconfirm
     let status = cmd("sudo", ["pacman"].into_iter().chain(args.iter().copied()).collect::<Vec<_>>())
         .stderr_to_stdout()
         .run()?;
@@ -90,9 +100,20 @@ pub fn sudo_pacman_U(zsts: &[String]) -> Result<()> {
 }
 
 pub fn sudo_pacman_U_with_repo(repo: &[String], zsts: &[String]) -> Result<()> {
+    sudo_pacman_U_with_repo_inner(repo, zsts, false)
+}
+
+pub fn sudo_pacman_U_with_repo_noconfirm(repo: &[String], zsts: &[String]) -> Result<()> {
+    sudo_pacman_U_with_repo_inner(repo, zsts, true)
+}
+
+fn sudo_pacman_U_with_repo_inner(repo: &[String], zsts: &[String], noconfirm: bool) -> Result<()> {
     // Install repo packages first (resolve deps), then single -U for all built AUR
     if !repo.is_empty() {
         let mut args = vec!["-S"];
+        if noconfirm {
+            args.push("--noconfirm");
+        }
         for r in repo { args.push(r.as_str()); }
         let status = cmd("sudo", ["pacman"].into_iter().chain(args.iter().copied()).collect::<Vec<_>>())
             .stderr_to_stdout()
@@ -101,7 +122,11 @@ pub fn sudo_pacman_U_with_repo(repo: &[String], zsts: &[String]) -> Result<()> {
             return Err(anyhow!("sudo pacman -S (repo) failed"));
         }
     }
-    sudo_pacman_U(zsts)
+    if noconfirm {
+        sudo_pacman_U_noconfirm(zsts)
+    } else {
+        sudo_pacman_U(zsts)
+    }
 }
 
 pub fn sudo_pacman_scc() -> Result<()> {

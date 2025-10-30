@@ -34,6 +34,7 @@ fn main() -> Result<()> {
         .arg(Arg::new("sync").short('S').action(ArgAction::SetTrue).help("Sync / install mode (pacman -S ...)"))
         .arg(Arg::new("refresh").short('y').action(ArgAction::Count).help("Refresh databases (can be doubled, like -yy)"))
         .arg(Arg::new("sysupgrade").short('u').action(ArgAction::SetTrue).help("System upgrade"))
+        .arg(Arg::new("noconfirm").long("noconfirm").action(ArgAction::SetTrue).help("No confirm mode (pacman -U --noconfirm)"))
         .arg(Arg::new("args").num_args(0..).trailing_var_arg(true).allow_hyphen_values(true).help("Additional pacman-like args or package names"))
         .get_matches();
 
@@ -57,12 +58,12 @@ fn main() -> Result<()> {
 
     if sync && (sysupgrade || ycount > 0) && args.is_empty() {
         // Treat as -Syu or -Syyu: show update menu for AUR packages (Trizen-like).
-        return handle_sysupgrade(&cfg, ycount as u8);
+        return handle_sysupgrade(&cfg, ycount as u8, &matches);
     }
 
     if sync {
         // Install specific packages: split between repo and AUR, build AUR in temp, install all together.
-        return handle_sync(&cfg, &args);
+        return handle_sync(&cfg, &args, &matches);
     }
 
     // Pass-through to pacman for everything else.
@@ -70,7 +71,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn handle_sysupgrade(cfg: &Config, ycount: u8) -> Result<()> {
+fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -> Result<()> {
     // If requested, refresh sync databases first (-y / -yy)
     if ycount > 0 {
         let mut flags = vec!["-Syu"]; 
@@ -180,13 +181,17 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8) -> Result<()> {
         }
     }
 
-    // Gather artifacts and install with single pacman -U (with prompt)
+    // Gather artifacts and install with single pacman -U (with or without prompt)
     let zsts = collect_zsts(&temp_path)?;
     if zsts.is_empty() {
         return Err(anyhow!("No built *.pkg.tar.zst artifacts found."));
     }
     let mut install_failed: Vec<String> = vec![];
-    let install_res = pac::sudo_pacman_U(&zsts);
+    let install_res = if arg_matches.get_flag("noconfirm") {
+        pac::sudo_pacman_U_noconfirm(&zsts)
+    } else {
+        pac::sudo_pacman_U(&zsts)
+    };
     if install_res.is_err() {
         // Best-effort map artifacts to pkg names
         install_failed = built_ok.clone();
@@ -205,7 +210,7 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8) -> Result<()> {
     Ok(())
 }
 
-fn handle_sync(cfg: &Config, pkgs: &[String]) -> Result<()> {
+fn handle_sync(cfg: &Config, pkgs: &[String], arg_matches: &clap::ArgMatches) -> Result<()> {
     if pkgs.is_empty() {
         return Err(anyhow!("No packages specified. Did you mean -Syu?"));
     }
@@ -280,7 +285,11 @@ fn handle_sync(cfg: &Config, pkgs: &[String]) -> Result<()> {
 
         // Install everything together: repo names + built AUR files
         let mut install_failed: Vec<String> = vec![];
-        let install_res = pac::sudo_pacman_U_with_repo(&repo, &zsts);
+        let install_res = if arg_matches.get_flag("noconfirm") {
+            pac::sudo_pacman_U_with_repo_noconfirm(&repo, &zsts)
+        } else {
+            pac::sudo_pacman_U_with_repo(&repo, &zsts)
+        };
         if install_res.is_err() {
             install_failed = built_ok.clone();
         }
