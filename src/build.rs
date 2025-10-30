@@ -86,7 +86,6 @@ pub fn verify_sources(pkgdir: &Path) -> Result<()> {
 }
 
 pub fn import_validpgpkeys(pkgdir: &Path) -> Result<()> {
-    // Use bash to source PKGBUILD and print validpgpkeys array, then import via gpg
     let sh = format!(
         "cd {} && set -a; source PKGBUILD >/dev/null 2>&1 || true; for k in \"${{validpgpkeys[@]}}\"; do echo $k; done",
         pkgdir.to_string_lossy()
@@ -100,13 +99,23 @@ pub fn import_validpgpkeys(pkgdir: &Path) -> Result<()> {
     if keys.is_empty() {
         return Ok(());
     }
-    let mut args: Vec<&str> = vec!["--keyserver", "hkps://keys.openpgp.org", "--recv-keys"];
-    for k in &keys { args.push(k); }
-    let status = cmd("gpg", args).stderr_to_stdout().run()?;
-    if !status.status.success() {
-        return Err(anyhow!("gpg --recv-keys failed for some keys in {}", pkgdir.display()));
+    let servers = [
+        "hkps://keys.openpgp.org",
+        "hkps://keyserver.ubuntu.com",
+        "hkps://keys.mailvelope.com",
+    ];
+    let mut last_err: Option<anyhow::Error> = None;
+    for srv in &servers {
+        let mut args: Vec<&str> = vec!["--keyserver", srv, "--recv-keys"];
+        for k in &keys { args.push(k); }
+        let res = cmd("gpg", args).stderr_to_stdout().run();
+        match res {
+            Ok(st) if st.status.success() => { return Ok(()); }
+            Ok(st) => { last_err = Some(anyhow!("gpg recv from {} failed: status {}", srv, st.status)); }
+            Err(e) => { last_err = Some(anyhow!("gpg recv from {} failed: {}", srv, e)); }
+        }
     }
-    Ok(())
+    Err(last_err.unwrap_or_else(|| anyhow!("gpg --recv-keys failed")))
 }
 
 pub fn ensure_persistent_dirs(cfg: &Config) -> Result<()> {

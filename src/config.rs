@@ -11,6 +11,7 @@ pub struct Config {
     pub root_dir_name: String, // e.g., "helpername"
     pub aur_mirror: String, // "aur" (default) or "github"
     pub mirror_base: Option<String>, // optional custom base when using github mirror
+    pub noconfirm: bool,
 }
 
 impl Default for Config {
@@ -21,6 +22,7 @@ impl Default for Config {
             root_dir_name: "turbo".to_string(),
             aur_mirror: "aur".to_string(),
             mirror_base: None,
+            noconfirm: false,
         }
     }
 }
@@ -66,6 +68,9 @@ impl Config {
                     }
                     if let Some(t) = value.get("mirror_base").and_then(|v| v.as_str()) {
                         cfg.mirror_base = Some(t.to_string());
+                    }
+                    if let Some(t) = value.get("noconfirm").and_then(|v| v.as_str()) {
+                        cfg.noconfirm = t.to_lowercase() == "true";
                     }
                 }
             }
