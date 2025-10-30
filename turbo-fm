@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Standalone wrapper to launch the configured file manager with the configured editor
+# Reads ~/turbo/conf (key=value), env vars override: AURWRAP_EDITOR, AURWRAP_FM
+# Usage: turbo-fm [DIR] [-- FM_EXTRA_ARGS...]
+set -euo pipefail
+
+ROOT_DIR="${AURWRAP_ROOT_DIR_NAME:-turbo}"
+CONF_FILE="${HOME}/${ROOT_DIR}/conf"
+DEFAULT_DIR="${HOME}/${ROOT_DIR}/cache/temp"
+
+# Parse first non-option arg as directory, everything after "--" passes to FM
+DIR="$DEFAULT_DIR"
+FM_ARGS=()
+if [[ ${#@} -gt 0 ]]; then
+  if [[ "$1" != "--" ]]; then
+    DIR="$1"
+    shift || true
+  fi
+fi
+if [[ ${#@} -gt 0 && "$1" == "--" ]]; then
+  shift
+  FM_ARGS=("$@")
+fi
+
+# Defaults
+editor="nvim"
+file_manager="nnn"
+
+# Read conf if present
+if [[ -f "$CONF_FILE" ]]; then
+  while IFS='=' read -r k v; do
+    [[ -z "${k}" ]] && continue
+    [[ "${k}" =~ ^# ]] && continue
+    k="${k##+([[:space:]])}"; k="${k%%+([[:space:]])}"
+    v="${v##+([[:space:]])}"; v="${v%%+([[:space:]])}"
+    case "$k" in
+      editor) editor="$v" ;;
+      file_manager) file_manager="$v" ;;
+    esac
+  done < <(grep -E '^[[:space:]]*[^#][^=]*=' "$CONF_FILE" || true)
+fi
+
+# Env overrides
+if [[ -n "${AURWRAP_EDITOR-}" ]]; then editor="$AURWRAP_EDITOR"; fi
+if [[ -n "${AURWRAP_FM-}" ]]; then file_manager="$AURWRAP_FM"; fi
+
+# Ensure target dir exists
+mkdir -p "$DIR"
+
+# Export editor for FM
+export VISUAL="$editor"
+export EDITOR="$editor"
+
+# Add -e for nnn so Enter opens files in $EDITOR
+if [[ "$file_manager" == "nnn" ]]; then
+  exec nnn -e "$DIR" "${FM_ARGS[@]}"
+else
+  exec "$file_manager" "$DIR" "${FM_ARGS[@]}"
+fi
