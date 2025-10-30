@@ -19,4 +19,4 @@ turbo -S <package_name>
 turbo -Syyu
 ```
 the configuration file can be found in `~/turbo/conf`
-in there you can choose to change the editor, file manager, and mirror. Yes, github mirror is an option, in case the aur is down.
+in there you can choose to change the editor, file manager, and mirror. Yes, github mirror will be an option, in case the aur is down, however, it may not be working at the moment.
