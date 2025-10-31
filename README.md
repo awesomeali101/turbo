@@ -10,7 +10,7 @@ NOTE: Turbo is currently in beta, it is already very capable, but there may be u
 
 ## Installation
 ```bash
-git clone https://github.com/awesomeali101/turbo.git
+git clone https://github.com/splizer101/turbo.git
 cd turbo
 makepkg -si
 ```
