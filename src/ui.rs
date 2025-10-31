@@ -2,6 +2,8 @@
 use anyhow::Result;
 use dialoguer::MultiSelect;
 
+use crate::style::*;
+
 #[derive(Debug, Clone)]
 pub struct Pickable {
     pub name: String,
@@ -11,7 +13,18 @@ pub struct Pickable {
 
 pub fn pick_updates(items: &[Pickable]) -> Result<Vec<String>> {
     let items_disp: Vec<String> = items.iter().map(|p| {
-        format!("{:<32} {:>12}  →  {:<12}", p.name, p.current, p.latest)
+        let name = package_name().apply_to(&p.name);
+        let current = current_version().apply_to(&p.current);
+        let arrow = dim().apply_to("→");
+        let latest = new_version().apply_to(&p.latest);
+        
+        format!(
+            "{name:<32} {current:>12}  {arrow}  {latest:<12}",
+            name = name,
+            current = current,
+            arrow = arrow,
+            latest = latest
+        )
     }).collect();
 
     let selected = MultiSelect::new()
@@ -31,9 +44,18 @@ pub fn pick_updates(items: &[Pickable]) -> Result<Vec<String>> {
 pub fn pick_updates_numeric(items: &[Pickable]) -> Result<Vec<String>> {
     // Print numbered list
     for (i, p) in items.iter().enumerate() {
-        println!("{:>2}) {:<32} {:>12}  →  {:<12}", i + 1, p.name, p.current, p.latest);
+        let num = number().apply_to(format!("{:>2})", i + 1));
+        let name = package_name().apply_to(&p.name);
+        let current = current_version().apply_to(&p.current);
+        let arrow = dim().apply_to("→");
+        let latest = new_version().apply_to(&p.latest);
+        
+        println!(
+            "{} {:<32} {:>12}  {}  {:<12}",
+            num, name, current, arrow, latest
+        );
     }
-    print!("Enter numbers to update (e.g., 1 3 5), or empty to skip: ");
+    print!("{} ", prompt().apply_to("Enter numbers to update (e.g., 1 3 5), or empty to skip:"));
     use std::io::{self, Write};
     io::stdout().flush()?;
     let mut line = String::new();

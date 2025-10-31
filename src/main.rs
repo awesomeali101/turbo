@@ -1,26 +1,23 @@
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use clap::{Arg, ArgAction, Command};
-use dialoguer::{Confirm, MultiSelect};
-use duct::cmd;
+use dialoguer::Confirm;
 use indicatif::{ProgressBar, ProgressStyle};
-use petgraph::graph::DiGraph;
-use petgraph::algo::toposort;
 use reqwest::blocking::Client;
-use serde::Deserialize;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::fs;
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Command as PCommand, Stdio};
-use std::time::Duration;
+use std::collections::HashSet;
+use std::io::Write;
+use std::process::Stdio;
 use std::thread;
+use std::time::Duration;
+
+use crate::style::*;
 
 mod config;
 mod pac;
 mod aur;
 mod build;
 mod ui;
+mod style;
 
 use crate::aur::{AurInfo, AurMeta, AurRpcResponse};
 use crate::config::Config;
@@ -78,6 +75,11 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -
         if ycount > 1 {
             flags = vec!["-Syyu"]; 
         }
+        println!(
+            "{} {}",
+            header().apply_to("==>"),
+            prompt().apply_to("Synchronizing package databases...")
+        );
         pac::run_pacman(&flags)?;
         thread::sleep(Duration::from_secs(1));
     }
@@ -85,7 +87,11 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -
     // Foreign packages (installed that are not in repos) - typically AUR ones.
     let foreign = pac::list_foreign_packages()?; // name -> version
     if foreign.is_empty() {
-        println!("No foreign (AUR) packages installed.");
+        println!(
+            "{} {}",
+            header().apply_to("==>"),
+            dim().apply_to("No foreign (AUR) packages installed.")
+        );
         return Ok(());
     }
 
