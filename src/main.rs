@@ -160,7 +160,7 @@ fn handle_print_updates(cfg: &Config) -> Result<()> {
     
     let json_path = home_dir()
         .ok_or_else(|| anyhow!("Cannot determine home directory"))?
-        .join("turb")
+        .join("turbo")
         .join("needupdate.json");
     
     // Ensure directory exists
