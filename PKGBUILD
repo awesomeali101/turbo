@@ -20,6 +20,8 @@ provides=("turbo")
 conflicts=("turbo")
 source=("${pkgname}::git+${url}.git")
 sha256sums=('SKIP')
+install=${pkgname}.install
+
 
 pkgver() {
   cd "${srcdir}/${pkgname}"
@@ -51,21 +53,18 @@ check() {
 }
 
 package() {
-  cd "${srcdir}/${pkgname}"
-
+cd "$pkgname"
   # Install main binary as /usr/bin/turbo (crate bin name is aurwrap)
   install -Dm755 "target/release/${_pkgname}" "${pkgdir}/usr/bin/turbo"
 
-  # Install the file-manager wrapper if present
-  if [[ -f turbo-fm ]]; then
-    install -Dm755 turbo-fm "${pkgdir}/usr/bin/turbo-fm"
-  fi
+  # Install setup script
+  install -Dm755 setup_turbo.sh "${pkgdir}/usr/share/turbo/setup-turbo"
+  
+  # Install turbo-fm script directly
+  install -Dm755 "turbo-fm" "${pkgdir}/usr/share/turbo/turbo-fm"
+  
 
-  # Optional setup script
-  if [[ -f setup_turbo.sh ]]; then
-    install -Dm755 setup_turbo.sh "${pkgdir}/usr/share/turbo/setup_turbo.sh"
-  fi
-  ./setup_turbo.sh
+
 
   # Docs
   if [[ -f README.md ]]; then
