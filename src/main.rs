@@ -48,7 +48,8 @@ fn main() -> Result<()> {
         .unwrap_or_else(Vec::new);
 
     // Handle -P: print list of packages that need to be upgraded
-    if print_updates {
+    // Check both the flag and args in case it wasn't parsed as a flag
+    if print_updates || args.iter().any(|a| a == "-P") {
         return handle_print_updates(&cfg);
     }
 
