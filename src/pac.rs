@@ -136,3 +136,37 @@ pub fn sudo_pacman_scc() -> Result<()> {
     }
     Ok(())
 }
+
+pub fn list_outdated_pacman_packages() -> Result<Vec<(String, String, String)>> {
+    // pacman -Qu outputs: "package_name old_version -> new_version"
+    // We need to get both old (installed) and new (available) versions
+    let out = cmd("pacman", ["-Qu"])
+        .stdout_capture()
+        .stderr_null()
+        .unchecked()
+        .run()?;
+    
+    if !out.status.success() {
+        // Exit code 1 means no updates available, which is fine
+        return Ok(vec![]);
+    }
+    
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let mut packages = vec![];
+    
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        
+        // Format is: "package_name old_version -> new_version"
+        if let Some((name_old, new_ver)) = line.split_once(" -> ") {
+            if let Some((name, old_ver)) = name_old.split_once(' ') {
+                packages.push((name.to_string(), old_ver.to_string(), new_ver.trim().to_string()));
+            }
+        }
+    }
+    
+    Ok(packages)
+}

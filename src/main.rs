@@ -2,13 +2,13 @@
 use anyhow::{anyhow, Result};
 use clap::{Arg, ArgAction, Command};
 use dialoguer::Confirm;
-use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
 use std::collections::HashSet;
-use std::io::Write;
-use std::process::Stdio;
 use std::thread;
 use std::time::Duration;
+use serde::{Serialize, Deserialize};
+use std::fs;
+use home::home_dir;
 
 use crate::style::*;
 
@@ -19,10 +19,9 @@ mod build;
 mod ui;
 mod style;
 
-use crate::aur::{AurInfo, AurMeta, AurRpcResponse};
 use crate::config::Config;
 use crate::build::{import_validpgpkeys, verify_sources};
-use crate::ui::{pick_updates, pick_updates_numeric, Pickable};
+use crate::ui::{pick_updates_numeric, Pickable};
 use crate::build::{clone_aur_pkgs, regen_srcinfo, makepkg_build, collect_zsts, open_file_manager, ensure_persistent_dirs, clean_dir_contents, clean_cache};
 
 fn main() -> Result<()> {
@@ -31,6 +30,7 @@ fn main() -> Result<()> {
         .arg(Arg::new("sync").short('S').action(ArgAction::SetTrue).help("Sync / install mode (pacman -S ...)"))
         .arg(Arg::new("refresh").short('y').action(ArgAction::Count).help("Refresh databases (can be doubled, like -yy)"))
         .arg(Arg::new("sysupgrade").short('u').action(ArgAction::SetTrue).help("System upgrade"))
+        .arg(Arg::new("print_updates").short('P').action(ArgAction::SetTrue).help("Print list of packages that need to be upgraded"))
         .arg(Arg::new("noconfirm").long("noconfirm").action(ArgAction::SetTrue).help("No confirm mode (pacman -U --noconfirm)"))
         .arg(Arg::new("args").num_args(0..).trailing_var_arg(true).allow_hyphen_values(true).help("Additional pacman-like args or package names"))
         .get_matches();
@@ -41,10 +41,16 @@ fn main() -> Result<()> {
     let sync = matches.get_flag("sync");
     let ycount = matches.get_count("refresh");
     let sysupgrade = matches.get_flag("sysupgrade");
+    let print_updates = matches.get_flag("print_updates");
     let args: Vec<String> = matches
         .get_many::<String>("args")
         .map(|v| v.map(|s| s.to_string()).collect())
         .unwrap_or_else(Vec::new);
+
+    // Handle -P: print list of packages that need to be upgraded
+    if print_updates {
+        return handle_print_updates(&cfg);
+    }
 
     // Special handling for -Scc: run pacman cache clean, then wipe our cache contents (keep dir)
     if args.iter().any(|a| a == "-Scc") {
@@ -65,6 +71,110 @@ fn main() -> Result<()> {
 
     // Pass-through to pacman for everything else.
     pac::passthrough_to_pacman(&args)?;
+    Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PackageUpdate {
+    name: String,
+    old_version: String,
+    new_version: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UpdateList {
+    aur: Vec<PackageUpdate>,
+    pacman: Vec<PackageUpdate>,
+}
+
+fn handle_print_updates(cfg: &Config) -> Result<()> {
+    let client = Client::builder().user_agent("aurwrap/0.1").build()?;
+    
+    // Get outdated AUR packages
+    let foreign = pac::list_foreign_packages()?;
+    let mut aur_updates = Vec::<PackageUpdate>::new();
+    
+    if !foreign.is_empty() {
+        let infos = aur::aur_info_batch(&client, foreign.keys().cloned().collect())?;
+        for (name, curver) in foreign.iter() {
+            if let Some(info) = infos.get(name) {
+                if let Ok(ord) = pac::vercmp(curver, &info.version) {
+                    if ord < 0 { // installed < aur
+                        aur_updates.push(PackageUpdate {
+                            name: name.clone(),
+                            old_version: curver.clone(),
+                            new_version: info.version.clone(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    // Get outdated pacman packages
+    let pacman_outdated = pac::list_outdated_pacman_packages()?;
+    let pacman_updates: Vec<PackageUpdate> = pacman_outdated
+        .into_iter()
+        .map(|(name, old_ver, new_ver)| PackageUpdate {
+            name,
+            old_version: old_ver,
+            new_version: new_ver,
+        })
+        .collect();
+    
+    // Display AUR updates
+    println!("\n{} AUR Packages to Update:", header().apply_to("==>"));
+    if aur_updates.is_empty() {
+        println!("  {}", dim().apply_to("No AUR packages need updating."));
+    } else {
+        for pkg in &aur_updates {
+            let name = package_name().apply_to(&pkg.name);
+            let old_ver = current_version().apply_to(&pkg.old_version);
+            let arrow = dim().apply_to("->");
+            let new_ver = new_version().apply_to(&pkg.new_version);
+            println!("  {name:<32} {old_ver:>12}  {arrow}  {new_ver:<12}", 
+                name = name, old_ver = old_ver, arrow = arrow, new_ver = new_ver);
+        }
+    }
+    
+    // Display pacman updates
+    println!("\n{} Pacman Packages to Update:", header().apply_to("==>"));
+    if pacman_updates.is_empty() {
+        println!("  {}", dim().apply_to("No pacman packages need updating."));
+    } else {
+        for pkg in &pacman_updates {
+            let name = package_name().apply_to(&pkg.name);
+            let old_ver = current_version().apply_to(&pkg.old_version);
+            let arrow = dim().apply_to("->");
+            let new_ver = new_version().apply_to(&pkg.new_version);
+            println!("  {name:<32} {old_ver:>12}  {arrow}  {new_ver:<12}", 
+                name = name, old_ver = old_ver, arrow = arrow, new_ver = new_ver);
+        }
+    }
+    
+    // Write JSON file
+    let update_list = UpdateList {
+        aur: aur_updates,
+        pacman: pacman_updates,
+    };
+    
+    let json_path = home_dir()
+        .ok_or_else(|| anyhow!("Cannot determine home directory"))?
+        .join("turb")
+        .join("needupdate.json");
+    
+    // Ensure directory exists
+    if let Some(parent) = json_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    
+    let json_content = serde_json::to_string_pretty(&update_list)?;
+    fs::write(&json_path, json_content)?;
+    
+    println!("\n{} JSON output written to: {}", 
+        header().apply_to("==>"),
+        path().apply_to(json_path.display()));
+    
     Ok(())
 }
 
