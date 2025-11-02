@@ -7,7 +7,8 @@ TEMP_DIR="${CACHE_DIR}/temp"
 CONF_FILE="${ROOT_DIR}/conf"
 
 mkdir -p "${TEMP_DIR}"
-sudo cp "./turbo-fm" /usr/bin/turbo-fm
+LOCAL_DIR="/usr/share/turbo"
+sudo cp "${LOCAL_DIR}/turbo-fm" /usr/bin/turbo-fm
 
 if [[ ! -f "${CONF_FILE}" ]]; then
   cat >"${CONF_FILE}" <<'EOF'
@@ -27,4 +28,4 @@ else
   echo "Conf already exists at ${CONF_FILE}"
 fi
 
-echo "Ensured directories: ${TEMP_DIR}"
+echo "Ensured directories: ${TEMP_DIR}" 
