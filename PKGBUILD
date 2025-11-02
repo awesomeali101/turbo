@@ -5,7 +5,7 @@ pkgname=turbo-git
 # Optional prerelease suffix for version (letters/dots only, no hyphen). Example: _pre=beta
 _pre=""
 _pkgname=aurwrap
-pkgver=0.1.r7.r16.g2d20c5d
+pkgver=0.1.r7.r31.g2948573
 pkgrel=1
 pkgdesc="Turbo: AUR helper in Rust that wraps pacman (paru-like): edit, build in cache, single pacman -U"
 arch=('x86_64' 'aarch64')
@@ -18,8 +18,10 @@ optdepends=('lf: alternative file manager'
             'nano: alternative editor')
 provides=("turbo")
 conflicts=("turbo")
-source=("${pkgname}::git+${url}.git")
+source=("${pkgname}::git+${url}.git#branch=testing")
 sha256sums=('SKIP')
+install=${pkgname}.install
+
 
 pkgver() {
   cd "${srcdir}/${pkgname}"
@@ -51,21 +53,18 @@ check() {
 }
 
 package() {
-  cd "${srcdir}/${pkgname}"
-
+cd "$pkgname"
   # Install main binary as /usr/bin/turbo (crate bin name is aurwrap)
   install -Dm755 "target/release/${_pkgname}" "${pkgdir}/usr/bin/turbo"
 
-  # Install the file-manager wrapper if present
-  if [[ -f turbo-fm ]]; then
-    install -Dm755 turbo-fm "${pkgdir}/usr/bin/turbo-fm"
-  fi
+  # Install setup script
+  install -Dm755 setup_turbo.sh "${pkgdir}/usr/share/turbo/setup-turbo"
+  
+  # Install turbo-fm script directly
+  install -Dm755 "turbo-fm" "${pkgdir}/usr/share/turbo/turbo-fm"
+  
 
-  # Optional setup script
-  if [[ -f setup_turbo.sh ]]; then
-    install -Dm755 setup_turbo.sh "${pkgdir}/usr/share/turbo/setup_turbo.sh"
-  fi
-  ./setup_turbo.sh
+
 
   # Docs
   if [[ -f README.md ]]; then

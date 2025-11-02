@@ -1,0 +1,17 @@
+post_install() {
+  # Only do system-wide, non-interactive, idempotent work here.
+  # Example: create system dirs, compile caches, print messages, etc.
+  if command -v /usr/share/turbo/setup-turbo >/dev/null 2>&1; then
+    /usr/share/turbo/setup-turbo --system || true
+  fi
+
+  printf '\n-> To set up per-user config, run: setup-turbo --user\n'
+}
+
+post_upgrade() {
+  post_install
+}
+
+pre_remove() {
+  :
+}

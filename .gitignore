@@ -1,2 +1,7 @@
 
 Cargo.lock
+/target
+/turbo-git
+/src/turbo-git
+/pkg
+turbo-git-*
