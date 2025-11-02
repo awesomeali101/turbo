@@ -18,7 +18,7 @@ optdepends=('lf: alternative file manager'
             'nano: alternative editor')
 provides=("turbo")
 conflicts=("turbo")
-source=("${pkgname}::git+${url}.git#branch=testing")
+source=("${pkgname}::git+${url}.git")
 sha256sums=('SKIP')
 install=${pkgname}.install
 
