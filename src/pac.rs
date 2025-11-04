@@ -1,20 +1,14 @@
 use crate::style::*;
-use crate::style::*;
-use crate::style::*;
 use anyhow::{anyhow, Result};
 use duct::cmd;
 use std::collections::HashMap;
+use tokio::task;
 
-pub fn run_pacman(args: &[&str]) -> Result<()> {
-    let status = cmd(
-        "sudo",
-        ["pacman"]
-            .into_iter()
-            .chain(args.iter().copied())
-            .collect::<Vec<_>>(),
-    )
-    .stderr_to_stdout()
-    .run()?;
+pub async fn run_pacman(args: &[String]) -> Result<()> {
+    let mut full_args = vec![String::from("pacman")];
+    full_args.extend(args.iter().cloned());
+    let status =
+        task::spawn_blocking(move || cmd("sudo", full_args).stderr_to_stdout().run()).await??;
     if !status.status.success() {
         return Err(anyhow!("pacman {:?} failed", args));
     }
@@ -34,29 +28,26 @@ pub fn is_in_repo(name: &str) -> Result<bool> {
     Ok(ok)
 }
 
-pub fn passthrough_to_pacman(args: &[String]) -> Result<()> {
-    let mut full = vec![];
-    let mut argstr: String = String::from("");
-    for a in args {
-        full.push(a.as_str());
-        if !argstr.is_empty() {
-            argstr.push(' ');
-        }
-        argstr.push_str(a);
+pub async fn passthrough_to_pacman(args: &[String]) -> Result<bool> {
+    if args.is_empty() {
+        return Ok(false);
     }
-    let command_str = format!("Running: sudo pacman {}", argstr);
+    let argstr = args.join(" ");
     println!(
         "{} {} {}",
         info_icon(),
         pacman_badge(),
-        prompt().apply_to(command_str.as_str())
+        prompt().apply_to(format!("Running: sudo pacman {}", argstr).as_str())
     );
-    run_pacman(&full)
+    let owned = args.to_vec();
+    run_pacman(&owned).await?;
+    Ok(true)
 }
 
-pub fn list_foreign_packages() -> Result<HashMap<String, String>> {
+pub async fn list_foreign_packages() -> Result<HashMap<String, String>> {
     // pacman -Qm : foreign; we'll get name and version
-    let out = cmd("sudo", ["pacman", "-Qm"]).stderr_to_stdout().read()?;
+    let out =
+        task::spawn_blocking(|| cmd("sudo", ["pacman", "-Qm"]).stderr_to_stdout().read()).await??;
     let mut map = HashMap::new();
     for line in out.lines() {
         if let Some((n, v)) = line.split_once(' ') {
@@ -66,9 +57,16 @@ pub fn list_foreign_packages() -> Result<HashMap<String, String>> {
     Ok(map)
 }
 
-pub fn vercmp(a: &str, b: &str) -> Result<i32> {
+pub async fn vercmp(a: &str, b: &str) -> Result<i32> {
     // pacman's vercmp prints -1, 0, or 1 on stdout
-    let out = cmd("vercmp", [a, b]).stderr_to_stdout().read()?;
+    let a = a.to_string();
+    let b = b.to_string();
+    let out = task::spawn_blocking(move || {
+        cmd("vercmp", [a.as_str(), b.as_str()])
+            .stderr_to_stdout()
+            .read()
+    })
+    .await??;
     let trimmed = out.trim();
     let v: i32 = trimmed
         .parse()
@@ -187,14 +185,22 @@ pub fn sudo_pacman_scc() -> Result<()> {
     Ok(())
 }
 
-pub fn list_outdated_pacman_packages() -> Result<Vec<(String, String, String)>> {
+pub async fn list_outdated_pacman_packages() -> Result<Vec<(String, String, String)>> {
     // pacman -Qu outputs: "package_name old_version -> new_version"
     // We need to get both old (installed) and new (available) versions
-    let out = cmd("pacman", ["-Qu"])
-        .stdout_capture()
-        .stderr_null()
-        .unchecked()
-        .run()?;
+    //
+    let refresh_args = vec![String::from("-Syy")];
+    if !passthrough_to_pacman(&refresh_args).await? {
+        return Ok(vec![]);
+    }
+    let out = task::spawn_blocking(|| {
+        cmd("pacman", ["-Qu"])
+            .stdout_capture()
+            .stderr_null()
+            .unchecked()
+            .run()
+    })
+    .await??;
 
     if !out.status.success() {
         // Exit code 1 means no updates available, which is fine

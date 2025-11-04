@@ -6,8 +6,8 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::thread;
 use std::time::Duration;
+use tokio::time::sleep;
 
 use crate::style::*;
 
@@ -28,7 +28,8 @@ use crate::config::Config;
 use crate::self_update::ensure_latest_release_installed;
 use crate::ui::{pick_updates_numeric, Pickable};
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let matches = Command::new("aurwrap")
         .about("A Rust AUR helper that wraps pacman: clones and builds AUR pkgs, installs them all at once with pacman -U")
         .arg(Arg::new("sync").short('S').action(ArgAction::SetTrue).help("Sync / install mode (pacman -S ...)"))
@@ -54,7 +55,7 @@ fn main() -> Result<()> {
     // Handle -P: print list of packages that need to be upgraded
     // Check both the flag and args in case it wasn't parsed as a flag
     if print_updates || args.iter().any(|a| a == "-P") {
-        return handle_print_updates(&cfg);
+        return handle_print_updates(&cfg).await;
     }
 
     // Special handling for -Scc: run pacman cache clean, then wipe our cache contents (keep dir)
@@ -66,7 +67,7 @@ fn main() -> Result<()> {
 
     if sync && (sysupgrade || ycount > 0) && args.is_empty() {
         // Treat as -Syu or -Syyu: show update menu for AUR packages (Trizen-like).
-        return handle_sysupgrade(&cfg, ycount as u8, &matches);
+        return handle_sysupgrade(&cfg, ycount as u8, &matches).await;
     }
 
     if sync {
@@ -75,7 +76,7 @@ fn main() -> Result<()> {
     }
 
     // Pass-through to pacman for everything else.
-    pac::passthrough_to_pacman(&args)?;
+    let _ = pac::passthrough_to_pacman(&args).await?;
     Ok(())
 }
 
@@ -178,18 +179,18 @@ fn classify_sync_targets(cfg: &Config, pkgs: &[String]) -> Result<(Vec<String>, 
     Ok((repo_pkgs, aur_pkgs))
 }
 
-fn handle_print_updates(_cfg: &Config) -> Result<()> {
+async fn handle_print_updates(_cfg: &Config) -> Result<()> {
     let client = Client::builder().user_agent("aurwrap/0.1").build()?;
 
     // Get outdated AUR packages
-    let foreign = pac::list_foreign_packages()?;
+    let foreign = pac::list_foreign_packages().await?;
     let mut aur_updates = Vec::<PackageUpdate>::new();
 
     if !foreign.is_empty() {
         let infos = aur::aur_info_batch(&client, foreign.keys().cloned().collect())?;
         for (name, curver) in foreign.iter() {
             if let Some(info) = infos.get(name) {
-                if let Ok(ord) = pac::vercmp(curver, &info.version) {
+                if let Ok(ord) = pac::vercmp(curver, &info.version).await {
                     if ord < 0 {
                         // installed < aur
                         aur_updates.push(PackageUpdate {
@@ -204,7 +205,7 @@ fn handle_print_updates(_cfg: &Config) -> Result<()> {
     }
 
     // Get outdated pacman packages
-    let pacman_outdated = pac::list_outdated_pacman_packages()?;
+    let pacman_outdated = pac::list_outdated_pacman_packages().await?;
     let pacman_updates: Vec<PackageUpdate> = pacman_outdated
         .into_iter()
         .map(|(name, old_ver, new_ver)| PackageUpdate {
@@ -301,21 +302,22 @@ fn handle_print_updates(_cfg: &Config) -> Result<()> {
     Ok(())
 }
 
-fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -> Result<()> {
+async fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -> Result<()> {
     // If requested, refresh sync databases first (-y / -yy)
     if ycount > 0 {
-        let mut flags = vec!["-Syu"];
+        let mut flags = vec![String::from("-Syu")];
         if ycount > 1 {
-            flags = vec!["-Syyu"];
+            flags = vec![String::from("-Syyu")];
         }
+        let command_str = format!("Running: sudo pacman {}", flags[0].as_str());
         println!(
             "{} {} {}",
             info_icon(),
             pacman_badge(),
-            prompt().apply_to((String::from("Running: sudo pacman ") + flags[0]).as_str())
+            prompt().apply_to(command_str.as_str())
         );
-        pac::run_pacman(&flags)?;
-        thread::sleep(Duration::from_secs(3));
+        pac::run_pacman(&flags).await?;
+        sleep(Duration::from_secs(3)).await;
     }
 
     if ycount > 1 {
@@ -323,7 +325,7 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -
     }
 
     // Foreign packages (installed that are not in repos) - typically AUR ones.
-    let foreign = pac::list_foreign_packages()?; // name -> version
+    let foreign = pac::list_foreign_packages().await?; // name -> version
     if foreign.is_empty() {
         println!(
             "{} {}",
@@ -341,7 +343,7 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -
     let mut outdated: Vec<Pickable> = vec![];
     for (name, curver) in foreign.iter() {
         if let Some(info) = infos.get(name) {
-            if let Ok(ord) = pac::vercmp(curver, &info.version) {
+            if let Ok(ord) = pac::vercmp(curver, &info.version).await {
                 if ord < 0 {
                     // installed < aur
                     outdated.push(Pickable {

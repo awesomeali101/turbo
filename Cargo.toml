@@ -23,6 +23,7 @@ toml = "0.8"
 globwalk = "0.9"
 urlencoding = "2.1"
 semver = "1.0"
+tokio = { version = "1.37", features = ["full"] }
 
 [profile.release]
 codegen-units = 1
