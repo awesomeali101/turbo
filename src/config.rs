@@ -84,7 +84,7 @@ impl Config {
                 }
             }
         }
-        //bruh
+        //bruh moment
         // Also support simple conf at ~/turbo/conf (key=value lines)
         if let Some(home) = home_dir() {
             let conf_path = home.join(cfg.root_dir_name.as_str()).join("conf");
