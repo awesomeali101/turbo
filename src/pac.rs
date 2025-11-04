@@ -122,6 +122,14 @@ fn sudo_pacman_U_inner(zsts: &[String], noconfirm: bool) -> Result<()> {
     for z in zsts {
         args.push(z.as_str());
     }
+
+    let command_str = format!("Running: sudo pacman {}", args.join(" "));
+    println!(
+        "{} {} {}",
+        info_icon(),
+        pacman_badge(),
+        prompt().apply_to(command_str.as_str())
+    );
     let status = cmd(
         "sudo",
         ["pacman"]
