@@ -22,6 +22,7 @@ home = "0.5"
 toml = "0.8"
 globwalk = "0.9"
 urlencoding = "2.1"
+semver = "1.0"
 
 [profile.release]
 codegen-units = 1
