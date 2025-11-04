@@ -9,11 +9,21 @@ The workflow is simple: clone, review/edit, and install. This makes it perfect f
 NOTE: Turbo is currently in beta, it is already very capable, but there may be undiscovered bugs and some missing features. Be cautious and use at your own risk. Feel free to open an issue if you find any bugs or have any suggestions.
 
 ## Installation
+
+For the main branch (recommended) please follow the instructions below:
 ```bash
 git clone https://github.com/splizer101/turbo.git
 cd turbo
 makepkg -si
 ```
+If you would like to install from the turbo testing repository please folloq the instructions below:
+```bash
+git clone https://github.com/splizer101/turbo.git#testing
+cd turbo
+makepkg -p PKGBUILD.testing -si
+```
+Note: It is not recommended to install the from the testing branch. The testing branch may have new features, but it is where unverified changes to the code are pushed to, using this branch may not be stable at all times.
+
 
 ## Usage
 
