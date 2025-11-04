@@ -44,7 +44,7 @@ pub fn passthrough_to_pacman(args: &[String]) -> Result<()> {
         }
         argstr.push_str(a);
     }
-    let command_str = format!("running: sudo pacman {}", argstr);
+    let command_str = format!("Running: sudo pacman {}", argstr);
     println!(
         "{} {} {}",
         info_icon(),
