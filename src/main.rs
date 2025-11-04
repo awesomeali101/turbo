@@ -312,10 +312,10 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -
             "{} {} {}",
             info_icon(),
             pacman_badge(),
-            prompt().apply_to("Synchronizing package databases...")
+            prompt().apply_to((String::from("running: sudo pacman ") + flags[0]).as_str())
         );
         pac::run_pacman(&flags)?;
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(Duration::from_secs(3));
     }
 
     if ycount > 1 {
