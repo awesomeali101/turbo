@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use home::home_dir;
 use std::fs;
@@ -6,10 +5,10 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub editor: String, // default nvim or nano
-    pub file_manager: String, // default nnn or lf
-    pub root_dir_name: String, // e.g., "helpername"
-    pub aur_mirror: String, // "aur" (default) or "github"
+    pub editor: String,              // default nvim or nano
+    pub file_manager: String,        // default nnn or lf
+    pub root_dir_name: String,       // e.g., "helpername"
+    pub aur_mirror: String,          // "aur" (default) or "github"
     pub mirror_base: Option<String>, // optional custom base when using github mirror
     pub noconfirm: bool,
 }
@@ -34,19 +33,29 @@ impl Config {
 
         // Load from legacy config file ~/.config/aurwrap/config.toml (if present)
         if let Ok(ed) = std::env::var("AURWRAP_EDITOR") {
-            if !ed.trim().is_empty() { cfg.editor = ed; }
+            if !ed.trim().is_empty() {
+                cfg.editor = ed;
+            }
         }
         if let Ok(fm) = std::env::var("AURWRAP_FM") {
-            if !fm.trim().is_empty() { cfg.file_manager = fm; }
+            if !fm.trim().is_empty() {
+                cfg.file_manager = fm;
+            }
         }
         if let Ok(rd) = std::env::var("AURWRAP_ROOT_DIR_NAME") {
-            if !rd.trim().is_empty() { cfg.root_dir_name = rd; }
+            if !rd.trim().is_empty() {
+                cfg.root_dir_name = rd;
+            }
         }
         if let Ok(m) = std::env::var("AURWRAP_MIRROR") {
-            if !m.trim().is_empty() { cfg.aur_mirror = m.to_lowercase(); }
+            if !m.trim().is_empty() {
+                cfg.aur_mirror = m.to_lowercase();
+            }
         }
         if let Ok(b) = std::env::var("AURWRAP_MIRROR_BASE") {
-            if !b.trim().is_empty() { cfg.mirror_base = Some(b); }
+            if !b.trim().is_empty() {
+                cfg.mirror_base = Some(b);
+            }
         }
         // Config file: ~/.config/aurwrap/config.toml
         if let Some(home) = home_dir() {
@@ -83,8 +92,10 @@ impl Config {
                 if let Ok(contents) = fs::read_to_string(&conf_path) {
                     for line in contents.lines() {
                         let line = line.trim();
-                        if line.is_empty() || line.starts_with('#') { continue; }
-                        if let Some((k,v)) = line.split_once('=') {
+                        if line.is_empty() || line.starts_with('#') {
+                            continue;
+                        }
+                        if let Some((k, v)) = line.split_once('=') {
                             let k = k.trim();
                             let v = v.trim();
                             match k {
@@ -102,19 +113,29 @@ impl Config {
 
         // Finally, apply env overrides again to supersede conf (as requested)
         if let Ok(ed) = std::env::var("AURWRAP_EDITOR") {
-            if !ed.trim().is_empty() { cfg.editor = ed; }
+            if !ed.trim().is_empty() {
+                cfg.editor = ed;
+            }
         }
         if let Ok(fm) = std::env::var("AURWRAP_FM") {
-            if !fm.trim().is_empty() { cfg.file_manager = fm; }
+            if !fm.trim().is_empty() {
+                cfg.file_manager = fm;
+            }
         }
         if let Ok(rd) = std::env::var("AURWRAP_ROOT_DIR_NAME") {
-            if !rd.trim().is_empty() { cfg.root_dir_name = rd; }
+            if !rd.trim().is_empty() {
+                cfg.root_dir_name = rd;
+            }
         }
         if let Ok(m) = std::env::var("AURWRAP_MIRROR") {
-            if !m.trim().is_empty() { cfg.aur_mirror = m.to_lowercase(); }
+            if !m.trim().is_empty() {
+                cfg.aur_mirror = m.to_lowercase();
+            }
         }
         if let Ok(b) = std::env::var("AURWRAP_MIRROR_BASE") {
-            if !b.trim().is_empty() { cfg.mirror_base = Some(b); }
+            if !b.trim().is_empty() {
+                cfg.mirror_base = Some(b);
+            }
         }
         Ok(cfg)
     }
@@ -132,4 +153,3 @@ impl Config {
         self.cache_dir().join("temp")
     }
 }
-
