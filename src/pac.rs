@@ -1,3 +1,6 @@
+use crate::style::*;
+use crate::style::*;
+use crate::style::*;
 use anyhow::{anyhow, Result};
 use duct::cmd;
 use std::collections::HashMap;
@@ -33,9 +36,21 @@ pub fn is_in_repo(name: &str) -> Result<bool> {
 
 pub fn passthrough_to_pacman(args: &[String]) -> Result<()> {
     let mut full = vec![];
+    let mut argstr: String = String::from("");
     for a in args {
         full.push(a.as_str());
+        if !argstr.is_empty() {
+            argstr.push(' ');
+        }
+        argstr.push_str(a);
     }
+    let command_str = format!("running: sudo pacman {}", argstr);
+    println!(
+        "{} {} {}",
+        info_icon(),
+        pacman_badge(),
+        prompt().apply_to(command_str.as_str())
+    );
     run_pacman(&full)
 }
 
