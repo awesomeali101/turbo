@@ -3,7 +3,7 @@
 
 pkgname=turbo-git
 _pkgname=aurwrap
-pkgver=0.1.0
+pkgver=0.1.1.beta.47.g8e88965
 pkgrel=1
 pkgdesc="Turbo: fast Rust AUR helper that wraps pacman for repo + AUR installs"
 arch=('x86_64' 'aarch64')
@@ -15,13 +15,8 @@ optdepends=('lf: alternative file manager'
             'nnn: alternative file manager'
             'neovim: default editor'
             'nano: alternative editor')
-<<<<<<< Updated upstream
-provides=("turbo")
-conflicts=("turbo")
-=======
 provides=('turbo')
 conflicts=('turbo')
->>>>>>> Stashed changes
 source=("${pkgname}::git+${url}.git")
 sha256sums=('SKIP')
 install=${pkgname}.install
