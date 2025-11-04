@@ -169,19 +169,15 @@ pub fn makepkg_build(pkgdir: &Path) -> Result<()> {
 }
 
 pub fn collect_zsts(root: &Path) -> Result<Vec<String>> {
-    let mut out = vec![];
-    for entry in fs::read_dir(root)? {
-        let path = entry?.path();
-        if path.is_dir() {
-            // Search for *.pkg.tar.zst in subtrees
-            for art in globwalk::GlobWalkerBuilder::from_patterns(&path, &["**/*.pkg.tar.zst"])
-                .build()?
-                .filter_map(Result::ok)
-            {
-                out.push(art.path().to_string_lossy().into_owned());
-            }
-        }
-    }
+    let mut out: Vec<String> =
+        globwalk::GlobWalkerBuilder::from_patterns(root, &["**/*.pkg.tar.zst"])
+            .follow_links(true)
+            .build()?
+            .filter_map(Result::ok)
+            .map(|entry| entry.path().to_string_lossy().into_owned())
+            .collect();
+    out.sort();
+    out.dedup();
     Ok(out)
 }
 

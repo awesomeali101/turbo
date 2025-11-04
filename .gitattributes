@@ -1,0 +1,3 @@
+# Hide from PR diffs as “generated”
+**/PKGBUILD linguist-generated=true
+**/*.SRCINFO linguist-generated=true
