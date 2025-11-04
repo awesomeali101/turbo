@@ -1,6 +1,6 @@
 [package]
 name = "aurwrap"
-version = "0.1.12"
+version = "0.1.13"
 edition = "2021"
 description = "A Rust AUR helper that wraps pacman, clones and builds AUR packages in a temp tree, and installs in a single pacman -U step"
 
@@ -23,6 +23,7 @@ toml = "0.8"
 globwalk = "0.9"
 urlencoding = "2.1"
 semver = "1.0"
+tokio = { version = "1.37", features = ["full"] }
 
 [profile.release]
 codegen-units = 1
