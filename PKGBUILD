@@ -9,10 +9,9 @@ pkgdesc="Turbo: fast Rust AUR helper that wraps pacman for repo + AUR installs"
 arch=('x86_64' 'aarch64')
 url="https://github.com/splizer101/turbo"
 license=('MIT' 'Apache-2.0')
-depends=('pacman' 'git' 'openssl')
+depends=('pacman' 'git' 'openssl' 'nnn')
 makedepends=('cargo' 'rust' 'pkgconf')
 optdepends=('lf: alternative file manager'
-            'nnn: alternative file manager'
             'neovim: default editor'
             'nano: alternative editor')
 provides=('turbo')
