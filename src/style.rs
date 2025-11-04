@@ -81,8 +81,12 @@ pub fn aur_badge() -> String {
     badge("AUR", aur_accent())
 }
 
+pub fn github_badge() -> String {
+    badge("GITHUB", github_accent())
+}
+
 pub fn github_aur_mirror_badge() -> String {
-    badge("GITHUB-AUR-MIRROR", github_accent())
+    badge("GITHUB-AUR", github_accent())
 }
 
 pub fn pacman_badge() -> String {

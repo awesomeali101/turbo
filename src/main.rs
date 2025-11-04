@@ -15,6 +15,7 @@ mod aur;
 mod build;
 mod config;
 mod pac;
+mod self_update;
 mod style;
 mod ui;
 
@@ -24,6 +25,7 @@ use crate::build::{
 };
 use crate::build::{import_validpgpkeys, verify_sources};
 use crate::config::Config;
+use crate::self_update::ensure_latest_release_installed;
 use crate::ui::{pick_updates_numeric, Pickable};
 
 fn main() -> Result<()> {
@@ -314,6 +316,10 @@ fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -
         );
         pac::run_pacman(&flags)?;
         thread::sleep(Duration::from_secs(1));
+    }
+
+    if ycount > 1 {
+        ensure_latest_release_installed(cfg)?;
     }
 
     // Foreign packages (installed that are not in repos) - typically AUR ones.
