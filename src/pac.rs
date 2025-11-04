@@ -156,6 +156,14 @@ pub fn install_repo_packages(repo: &[String], noconfirm: bool) -> Result<()> {
     for r in repo {
         args.push(r.as_str());
     }
+
+    let command_str = format!("Running: sudo pacman {}", args.join(" "));
+    println!(
+        "{} {} {}",
+        info_icon(),
+        pacman_badge(),
+        prompt().apply_to(command_str.as_str())
+    );
     let status = cmd(
         "sudo",
         ["pacman"]
