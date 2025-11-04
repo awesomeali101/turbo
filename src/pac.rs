@@ -1,12 +1,17 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use duct::cmd;
 use std::collections::HashMap;
-use std::process::Stdio;
 
 pub fn run_pacman(args: &[&str]) -> Result<()> {
-    let status = cmd("sudo", ["pacman"].into_iter().chain(args.iter().copied()).collect::<Vec<_>>())
-        .stderr_to_stdout()
-        .run()?;
+    let status = cmd(
+        "sudo",
+        ["pacman"]
+            .into_iter()
+            .chain(args.iter().copied())
+            .collect::<Vec<_>>(),
+    )
+    .stderr_to_stdout()
+    .run()?;
     if !status.status.success() {
         return Err(anyhow!("pacman {:?} failed", args));
     }
@@ -14,11 +19,14 @@ pub fn run_pacman(args: &[&str]) -> Result<()> {
 }
 
 pub fn is_in_repo(name: &str) -> Result<bool> {
-    let res = cmd("bash", ["-lc", &format!("sudo pacman -Si -- {}", shell_escape(name))])
-        .stdout_capture()
-        .stderr_null()
-        .unchecked()
-        .run()?;
+    let res = cmd(
+        "bash",
+        ["-lc", &format!("sudo pacman -Si -- {}", shell_escape(name))],
+    )
+    .stdout_capture()
+    .stderr_null()
+    .unchecked()
+    .run()?;
     let ok = res.status.success() && !String::from_utf8_lossy(&res.stdout).is_empty();
     Ok(ok)
 }
@@ -31,12 +39,12 @@ pub fn passthrough_to_pacman(args: &[String]) -> Result<()> {
     run_pacman(&full)
 }
 
-pub fn list_foreign_packages() -> Result<HashMap<String,String>> {
+pub fn list_foreign_packages() -> Result<HashMap<String, String>> {
     // pacman -Qm : foreign; we'll get name and version
     let out = cmd("sudo", ["pacman", "-Qm"]).stderr_to_stdout().read()?;
     let mut map = HashMap::new();
     for line in out.lines() {
-        if let Some((n,v)) = line.split_once(' ') {
+        if let Some((n, v)) = line.split_once(' ') {
             map.insert(n.to_string(), v.to_string());
         }
     }
@@ -47,7 +55,9 @@ pub fn vercmp(a: &str, b: &str) -> Result<i32> {
     // pacman's vercmp prints -1, 0, or 1 on stdout
     let out = cmd("vercmp", [a, b]).stderr_to_stdout().read()?;
     let trimmed = out.trim();
-    let v: i32 = trimmed.parse().map_err(|_| anyhow!("invalid vercmp output: {}", trimmed))?;
+    let v: i32 = trimmed
+        .parse()
+        .map_err(|_| anyhow!("invalid vercmp output: {}", trimmed))?;
     Ok(v)
 }
 
@@ -56,13 +66,20 @@ pub fn split_repo_vs_aur(pkgs: &[String]) -> Result<(Vec<String>, Vec<String>)> 
     let mut aur = vec![];
     for p in pkgs {
         // If pacman -Si finds it in a repo, treat as repo; else assume AUR
-        let res = cmd("bash", ["-lc", &format!("sudo pacman -Si -- {}", shell_escape(p))])
-            .stdout_capture()
-            .stderr_null()
-            .unchecked()
-            .run()?;
+        let res = cmd(
+            "bash",
+            ["-lc", &format!("sudo pacman -Si -- {}", shell_escape(p))],
+        )
+        .stdout_capture()
+        .stderr_null()
+        .unchecked()
+        .run()?;
         let ok = res.status.success() && !String::from_utf8_lossy(&res.stdout).is_empty();
-        if ok { repo.push(p.clone()); } else { aur.push(p.clone()); }
+        if ok {
+            repo.push(p.clone());
+        } else {
+            aur.push(p.clone());
+        }
     }
     Ok((repo, aur))
 }
@@ -90,43 +107,45 @@ fn sudo_pacman_U_inner(zsts: &[String], noconfirm: bool) -> Result<()> {
     for z in zsts {
         args.push(z.as_str());
     }
-    let status = cmd("sudo", ["pacman"].into_iter().chain(args.iter().copied()).collect::<Vec<_>>())
-        .stderr_to_stdout()
-        .run()?;
+    let status = cmd(
+        "sudo",
+        ["pacman"]
+            .into_iter()
+            .chain(args.iter().copied())
+            .collect::<Vec<_>>(),
+    )
+    .stderr_to_stdout()
+    .run()?;
     if !status.status.success() {
         return Err(anyhow!("sudo pacman -U failed"));
     }
     Ok(())
 }
 
-pub fn sudo_pacman_U_with_repo(repo: &[String], zsts: &[String]) -> Result<()> {
-    sudo_pacman_U_with_repo_inner(repo, zsts, false)
-}
-
-pub fn sudo_pacman_U_with_repo_noconfirm(repo: &[String], zsts: &[String]) -> Result<()> {
-    sudo_pacman_U_with_repo_inner(repo, zsts, true)
-}
-
-fn sudo_pacman_U_with_repo_inner(repo: &[String], zsts: &[String], noconfirm: bool) -> Result<()> {
-    // Install repo packages first (resolve deps), then single -U for all built AUR
-    if !repo.is_empty() {
-        let mut args = vec!["-S"];
-        if noconfirm {
-            args.push("--noconfirm");
-        }
-        for r in repo { args.push(r.as_str()); }
-        let status = cmd("sudo", ["pacman"].into_iter().chain(args.iter().copied()).collect::<Vec<_>>())
-            .stderr_to_stdout()
-            .run()?;
-        if !status.status.success() {
-            return Err(anyhow!("sudo pacman -S (repo) failed"));
-        }
+pub fn install_repo_packages(repo: &[String], noconfirm: bool) -> Result<()> {
+    if repo.is_empty() {
+        return Ok(());
     }
+    let mut args = vec!["-S"];
     if noconfirm {
-        sudo_pacman_U_noconfirm(zsts)
-    } else {
-        sudo_pacman_U(zsts)
+        args.push("--noconfirm");
     }
+    for r in repo {
+        args.push(r.as_str());
+    }
+    let status = cmd(
+        "sudo",
+        ["pacman"]
+            .into_iter()
+            .chain(args.iter().copied())
+            .collect::<Vec<_>>(),
+    )
+    .stderr_to_stdout()
+    .run()?;
+    if !status.status.success() {
+        return Err(anyhow!("sudo pacman -S (repo) failed"));
+    }
+    Ok(())
 }
 
 pub fn sudo_pacman_scc() -> Result<()> {
@@ -145,28 +164,32 @@ pub fn list_outdated_pacman_packages() -> Result<Vec<(String, String, String)>> 
         .stderr_null()
         .unchecked()
         .run()?;
-    
+
     if !out.status.success() {
         // Exit code 1 means no updates available, which is fine
         return Ok(vec![]);
     }
-    
+
     let stdout = String::from_utf8_lossy(&out.stdout);
     let mut packages = vec![];
-    
+
     for line in stdout.lines() {
         let line = line.trim();
         if line.is_empty() {
             continue;
         }
-        
+
         // Format is: "package_name old_version -> new_version"
         if let Some((name_old, new_ver)) = line.split_once(" -> ") {
             if let Some((name, old_ver)) = name_old.split_once(' ') {
-                packages.push((name.to_string(), old_ver.to_string(), new_ver.trim().to_string()));
+                packages.push((
+                    name.to_string(),
+                    old_ver.to_string(),
+                    new_ver.trim().to_string(),
+                ));
             }
         }
     }
-    
+
     Ok(packages)
 }

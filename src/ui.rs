@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use dialoguer::MultiSelect;
 
@@ -12,23 +11,32 @@ pub struct Pickable {
 }
 
 pub fn pick_updates(items: &[Pickable]) -> Result<Vec<String>> {
-    let items_disp: Vec<String> = items.iter().map(|p| {
-        let name = package_name().apply_to(&p.name);
-        let current = current_version().apply_to(&p.current);
-        let arrow = dim().apply_to("→");
-        let latest = new_version().apply_to(&p.latest);
-        
-        format!(
-            "{name:<32} {current:>12}  {arrow}  {latest:<12}",
-            name = name,
-            current = current,
-            arrow = arrow,
-            latest = latest
-        )
-    }).collect();
+    let items_disp: Vec<String> = items
+        .iter()
+        .map(|p| {
+            let name = package_name().apply_to(&p.name);
+            let current = current_version().apply_to(&p.current);
+            let arrow = dim().apply_to("→");
+            let latest = new_version().apply_to(&p.latest);
 
+            format!(
+                "{} {name:<32} {current:>12}  {arrow}  {latest:<12}",
+                bullet(),
+                name = name,
+                current = current,
+                arrow = arrow,
+                latest = latest
+            )
+        })
+        .collect();
+
+    let prompt_label = format!(
+        "{} {}",
+        info_icon(),
+        prompt().apply_to("Select AUR packages to update")
+    );
     let selected = MultiSelect::new()
-        .with_prompt("Select AUR packages to update")
+        .with_prompt(prompt_label)
         .items(&items_disp)
         .defaults(&vec![true; items.len()])
         .report(true)
@@ -49,13 +57,22 @@ pub fn pick_updates_numeric(items: &[Pickable]) -> Result<Vec<String>> {
         let current = current_version().apply_to(&p.current);
         let arrow = dim().apply_to("→");
         let latest = new_version().apply_to(&p.latest);
-        
+
         println!(
-            "{} {:<32} {:>12}  {}  {:<12}",
-            num, name, current, arrow, latest
+            "{} {} {:<32} {:>12}  {}  {:<12}",
+            bullet(),
+            num,
+            name,
+            current,
+            arrow,
+            latest
         );
     }
-    print!("{} ", prompt().apply_to("Enter numbers to update (e.g., 1 3 5), or empty to skip:"));
+    print!(
+        "{} {} ",
+        info_icon(),
+        prompt().apply_to("Enter numbers to update (e.g., 1 3 5), or empty to skip:")
+    );
     use std::io::{self, Write};
     io::stdout().flush()?;
     let mut line = String::new();

@@ -23,5 +23,11 @@ Turbo is a complete pacman wrapper, and has all the same commands as pacman, but
 turbo -S <package_name>
 turbo -Syyu
 ```
+Update 1: packages can now be installed with specifying the repo
+
+```zsh
+turbo -S aur/<package_name> extra/<package_name> githib-aur/<package_name>
+```
+
 the configuration file can be found in `~/turbo/conf`
 in there you can choose to change the editor, file manager, and mirror. Yes, github mirror will be an option, in case the aur is down. The github mirror should be working, however there may be some undiscovered issues.

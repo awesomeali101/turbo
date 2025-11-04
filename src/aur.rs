@@ -1,8 +1,7 @@
-
 use anyhow::{anyhow, Context, Result};
-use petgraph::graph::NodeIndex;
-use petgraph::graph::DiGraph;
 use petgraph::algo::toposort;
+use petgraph::graph::DiGraph;
+use petgraph::graph::NodeIndex;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
@@ -39,7 +38,12 @@ pub struct AurRpcResponse {
 }
 
 fn aur_rpc_info(client: &Client, names: &[String]) -> Result<AurMeta> {
-    if names.is_empty() { return Ok(AurMeta{resultcount:0, results: vec![]}); }
+    if names.is_empty() {
+        return Ok(AurMeta {
+            resultcount: 0,
+            results: vec![],
+        });
+    }
     let mut url = String::from("https://aur.archlinux.org/rpc/?v=5&type=info");
     for n in names {
         url.push_str("&arg[]=");
@@ -60,7 +64,10 @@ pub fn aur_info_batch(client: &Client, names: Vec<String>) -> Result<HashMap<Str
 
 fn strip_version(dep: &str) -> String {
     // foo>=1.2 -> foo
-    dep.split(|c| c=='<' || c=='>' || c=='=').next().unwrap_or(dep).to_string()
+    dep.split(|c| c == '<' || c == '>' || c == '=')
+        .next()
+        .unwrap_or(dep)
+        .to_string()
 }
 
 fn resolve_dep_names(info: &AurInfo) -> Vec<String> {
@@ -89,7 +96,9 @@ pub fn resolve_build_order(client: &Client, roots: &[String]) -> Result<Vec<Stri
         // Record infos we got back
         for info in meta.results {
             let name = info.name.clone();
-            if !seen.insert(name.clone()) { continue; }
+            if !seen.insert(name.clone()) {
+                continue;
+            }
             let deps = resolve_dep_names(&info);
             // Add possible AUR deps to visit
             to_visit.extend(deps);
@@ -114,7 +123,8 @@ pub fn resolve_build_order(client: &Client, roots: &[String]) -> Result<Vec<Stri
         }
     }
 
-    let order_idx = toposort(&g, None).map_err(|e| anyhow!("Dependency cycle involving {:?}", e.node_id()))?;
+    let order_idx =
+        toposort(&g, None).map_err(|e| anyhow!("Dependency cycle involving {:?}", e.node_id()))?;
     let mut order = vec![];
     for idx in order_idx {
         let name = g.node_weight(idx).unwrap();
@@ -122,5 +132,8 @@ pub fn resolve_build_order(client: &Client, roots: &[String]) -> Result<Vec<Stri
             order.push(name.clone());
         }
     }
-    Ok(order.into_iter().filter(|n| infos.contains_key(n)).collect())
+    Ok(order
+        .into_iter()
+        .filter(|n| infos.contains_key(n))
+        .collect())
 }
