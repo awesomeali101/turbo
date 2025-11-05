@@ -8,9 +8,21 @@ pub async fn run_pacman(args: &[String]) -> Result<()> {
     let mut full_args = vec![String::from("pacman")];
     full_args.extend(args.iter().cloned());
     let status =
-        task::spawn_blocking(move || cmd("sudo", full_args).stderr_to_stdout().run()).await??;
+        task::spawn_blocking(move || cmd("sudo", full_args).stderr_to_stdout().unchecked().run())
+            .await??;
     if !status.status.success() {
-        return Err(anyhow!("pacman {:?} failed", args));
+        let exit_desc = status
+            .status
+            .code()
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| String::from("terminated by signal"));
+        let message = format!("pacman {:?} exited with {}", args, exit_desc);
+        println!(
+            "{} {} {}",
+            warn_icon(),
+            pacman_badge(),
+            warning().apply_to(message)
+        );
     }
     Ok(())
 }
@@ -197,7 +209,6 @@ pub async fn list_outdated_pacman_packages(
     }
     let refresh_args = vec![refresh_arg];
     if !passthrough_to_pacman(&refresh_args).await? {
-        std::thread::sleep(std::time::Duration::from_millis(2000));
         return Ok(vec![]);
     }
     let out = task::spawn_blocking(|| {
