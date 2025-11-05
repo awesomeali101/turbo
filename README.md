@@ -16,7 +16,7 @@ git clone https://github.com/splizer101/turbo.git
 cd turbo
 makepkg -si
 ```
-If you would like to install from the turbo testing repository please folloq the instructions below:
+If you would like to install from the turbo testing repository please follow the instructions below:
 ```bash
 git clone https://github.com/splizer101/turbo.git#testing
 cd turbo

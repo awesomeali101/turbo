@@ -185,12 +185,19 @@ pub fn sudo_pacman_scc() -> Result<()> {
     Ok(())
 }
 
-pub async fn list_outdated_pacman_packages() -> Result<Vec<(String, String, String)>> {
+pub async fn list_outdated_pacman_packages(
+    forcerefresh: bool,
+) -> Result<Vec<(String, String, String)>> {
     // pacman -Qu outputs: "package_name old_version -> new_version"
     // We need to get both old (installed) and new (available) versions
     //
-    let refresh_args = vec![String::from("-Sy")];
+    let mut refresh_arg = String::from("-Sy");
+    if forcerefresh {
+        refresh_arg = String::from("-Syy")
+    }
+    let refresh_args = vec![refresh_arg];
     if !passthrough_to_pacman(&refresh_args).await? {
+        std::thread::sleep(std::time::Duration::from_millis(2000));
         return Ok(vec![]);
     }
     let out = task::spawn_blocking(|| {
