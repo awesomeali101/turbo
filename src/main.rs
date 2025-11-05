@@ -55,7 +55,9 @@ async fn main() -> Result<()> {
     // Handle -P: print list of packages that need to be upgraded
     // Check both the flag and args in case it wasn't parsed as a flag
     if print_updates || args.iter().any(|a| a == "-P") {
-        return handle_print_updates(&cfg).await;
+        let forcerefresh = ycount > 1;
+
+        return handle_print_updates(&cfg, forcerefresh).await;
     }
 
     // Special handling for -Scc: run pacman cache clean, then wipe our cache contents (keep dir)
@@ -179,7 +181,7 @@ fn classify_sync_targets(cfg: &Config, pkgs: &[String]) -> Result<(Vec<String>, 
     Ok((repo_pkgs, aur_pkgs))
 }
 
-async fn handle_print_updates(_cfg: &Config) -> Result<()> {
+async fn handle_print_updates(_cfg: &Config, forcerefresh: bool) -> Result<()> {
     let client = Client::builder().user_agent("aurwrap/0.1").build()?;
 
     // Get outdated AUR packages
@@ -205,7 +207,7 @@ async fn handle_print_updates(_cfg: &Config) -> Result<()> {
     }
 
     // Get outdated pacman packages
-    let pacman_outdated = pac::list_outdated_pacman_packages().await?;
+    let pacman_outdated = pac::list_outdated_pacman_packages(forcerefresh).await?;
     let pacman_updates: Vec<PackageUpdate> = pacman_outdated
         .into_iter()
         .map(|(name, old_ver, new_ver)| PackageUpdate {
