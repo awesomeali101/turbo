@@ -189,7 +189,7 @@ pub async fn list_outdated_pacman_packages() -> Result<Vec<(String, String, Stri
     // pacman -Qu outputs: "package_name old_version -> new_version"
     // We need to get both old (installed) and new (available) versions
     //
-    let refresh_args = vec![String::from("-Syy")];
+    let refresh_args = vec![String::from("-Sy")];
     if !passthrough_to_pacman(&refresh_args).await? {
         return Ok(vec![]);
     }
