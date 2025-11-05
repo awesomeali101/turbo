@@ -470,7 +470,20 @@ async fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatc
     }
 
     // Gather artifacts and install with single pacman -U (with or without prompt)
-    let zsts = collect_zsts(&temp_path)?;
+    let built_ok_bases: HashSet<String> = built_ok.iter().cloned().collect();
+    let desired_pkg_names: HashSet<String> = order
+        .iter()
+        .filter_map(|name| {
+            info_for_order.get(name).and_then(|info| {
+                if built_ok_bases.contains(&info.pkgbase) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+    let zsts = collect_zsts(&temp_path, Some(&desired_pkg_names))?;
     if zsts.is_empty() {
         return Err(anyhow!("No built *.pkg.tar.zst artifacts found."));
     }
@@ -664,7 +677,20 @@ fn handle_sync(cfg: &Config, pkgs: &[String], arg_matches: &clap::ArgMatches) ->
     }
 
     // Collect .zst paths
-    let zsts = collect_zsts(&temp_path)?;
+    let built_ok_bases: HashSet<String> = built_ok.iter().cloned().collect();
+    let desired_pkg_names: HashSet<String> = build_order
+        .iter()
+        .filter_map(|name| {
+            info_for_order.get(name).and_then(|info| {
+                if built_ok_bases.contains(&info.pkgbase) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+    let zsts = collect_zsts(&temp_path, Some(&desired_pkg_names))?;
     if zsts.is_empty() {
         return Err(anyhow!("No built *.pkg.tar.zst artifacts found."));
     }

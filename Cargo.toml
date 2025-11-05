@@ -1,6 +1,6 @@
 [package]
 name = "aurwrap"
-version = "0.1.14"
+version = "0.1.15"
 edition = "2021"
 description = "A Rust AUR helper that wraps pacman, clones and builds AUR packages in a temp tree, and installs in a single pacman -U step"
 
