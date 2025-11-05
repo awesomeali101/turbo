@@ -3,7 +3,7 @@
 
 pkgname=turbo-git
 _pkgname=aurwrap
-pkgver=0.1.13.beta.2.gc7b483d
+pkgver=0.1.14.beta.4.g54e6434
 pkgrel=1
 pkgdesc="Turbo: fast Rust AUR helper that wraps pacman for repo + AUR installs"
 arch=('x86_64' 'aarch64')
