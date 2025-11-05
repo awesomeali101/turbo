@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use duct::cmd;
-use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
@@ -169,7 +168,7 @@ pub fn makepkg_build(pkgdir: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn collect_zsts(root: &Path, allowed: Option<&HashSet<String>>) -> Result<Vec<String>> {
+pub fn collect_zsts(root: &Path) -> Result<Vec<String>> {
     let mut out: Vec<String> =
         globwalk::GlobWalkerBuilder::from_patterns(root, &["**/*.pkg.tar.zst"])
             .follow_links(true)
@@ -177,43 +176,6 @@ pub fn collect_zsts(root: &Path, allowed: Option<&HashSet<String>>) -> Result<Ve
             .filter_map(Result::ok)
             .map(|entry| entry.path().to_string_lossy().into_owned())
             .collect();
-
-    if let Some(names) = allowed {
-        if !out.is_empty() {
-            let mut args: Vec<&str> = Vec::with_capacity(2 + out.len());
-            args.push("-Qpq");
-            args.push("--");
-            for path in &out {
-                args.push(path.as_str());
-            }
-            let output = cmd("pacman", args)
-                .stderr_to_stdout()
-                .read()
-                .map_err(|e| anyhow!("pacman -Qpq failed: {}", e))?;
-            let pkg_names: Vec<String> =
-                output.lines().map(|line| line.trim().to_string()).collect();
-            if pkg_names.len() != out.len() {
-                return Err(anyhow!(
-                    "pacman -Qpq returned {} names for {} artifacts",
-                    pkg_names.len(),
-                    out.len()
-                ));
-            }
-            let filtered: Vec<String> = out
-                .into_iter()
-                .zip(pkg_names.into_iter())
-                .filter_map(|(path, pkg_name)| {
-                    if names.contains(&pkg_name) {
-                        Some(path)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            out = filtered;
-        }
-    }
-
     out.sort();
     out.dedup();
     Ok(out)

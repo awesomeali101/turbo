@@ -140,7 +140,7 @@ fn install_latest_from_branch(cfg: &Config, branch: &str) -> Result<()> {
     );
     run_makepkg(&checkout_dir)?;
 
-    let artifacts = collect_zsts(&checkout_dir, None)?;
+    let artifacts = collect_zsts(&checkout_dir)?;
     if artifacts.is_empty() {
         return Err(anyhow!(
             "Self-update build produced no *.pkg.tar.zst artifacts"
