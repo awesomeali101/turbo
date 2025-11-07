@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
         .get_many::<String>("args")
         .map(|v| v.map(|s| s.to_string()).collect())
         .unwrap_or_else(Vec::new);
-
+    let pacman = pac::get_pacman();
     // Handle -P: print list of packages that need to be upgraded
     // Check both the flag and args in case it wasn't parsed as a flag
     if print_updates || args.iter().any(|a| a == "-P") {
