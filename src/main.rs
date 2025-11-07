@@ -306,12 +306,13 @@ async fn handle_print_updates(_cfg: &Config, forcerefresh: bool) -> Result<()> {
 
 async fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatches) -> Result<()> {
     // If requested, refresh sync databases first (-y / -yy)
+    let pacman = pac::get_pacman();
     if ycount > 0 {
         let mut flags = vec![String::from("-Syu")];
         if ycount > 1 {
             flags = vec![String::from("-Syyu")];
         }
-        let command_str = format!("Running: sudo pacman {}", flags[0].as_str());
+        let command_str = format!("Running: sudo {} {}", pacman, flags[0].as_str());
         println!(
             "{} {} {}",
             info_icon(),
