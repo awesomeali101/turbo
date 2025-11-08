@@ -15,7 +15,9 @@ pub enum AurSource {
 
 impl AurSource {
     pub fn from_cfg(cfg: &Config) -> Self {
-        if cfg.aur_mirror.eq_ignore_ascii_case("github") {
+        if cfg.aur_mirror.eq_ignore_ascii_case("github")
+            || cfg.aur_mirror.eq_ignore_ascii_case("github-aur")
+        {
             AurSource::Github
         } else {
             AurSource::Official

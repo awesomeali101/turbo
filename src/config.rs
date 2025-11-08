@@ -8,7 +8,7 @@ pub struct Config {
     pub editor: String,              // default nvim or nano
     pub file_manager: String,        // default nnn or lf
     pub root_dir_name: String,       // e.g., "helpername"
-    pub aur_mirror: String,          // "aur" (default) or "github"
+    pub aur_mirror: String,          // "aur" (default) or "github-aur"
     pub mirror_base: Option<String>, // optional custom base when using github mirror
     pub noconfirm: bool,
     pub pacman: String,

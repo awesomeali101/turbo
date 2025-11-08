@@ -1,19 +1,16 @@
+use crate::config::Config;
 use crate::style::*;
 use anyhow::{anyhow, Result};
 use duct::cmd;
 use std::collections::HashMap;
-use tokio::task;
-use crate::config::Config;
 use std::sync::{LazyLock, OnceLock};
+use tokio::task;
 
 static PACMAN: OnceLock<String> = OnceLock::new();
 
 pub fn get_pacman() -> &'static str {
     PACMAN.get_or_init(|| Config::load().unwrap().pacman)
 }
-
-
-
 
 pub async fn run_pacman(args: &[String]) -> Result<()> {
     let pacman = get_pacman();
@@ -43,7 +40,10 @@ pub fn is_in_repo(name: &str) -> Result<bool> {
     let pacman = get_pacman();
     let res = cmd(
         "bash",
-        ["-lc", &format!("sudo {} -Si -- {}", pacman, shell_escape(name))],
+        [
+            "-lc",
+            &format!("sudo {} -Si -- {}", pacman, shell_escape(name)),
+        ],
     )
     .stdout_capture()
     .stderr_null()
@@ -73,8 +73,8 @@ pub async fn passthrough_to_pacman(args: &[String]) -> Result<bool> {
 pub async fn list_foreign_packages() -> Result<HashMap<String, String>> {
     // pacman -Qm : foreign; we'll get name and version
     let pacman = get_pacman();
-    let out =
-        task::spawn_blocking(move || cmd("sudo", [pacman, "-Qm"]).stderr_to_stdout().read()).await??;
+    let out = task::spawn_blocking(move || cmd("sudo", [pacman, "-Qm"]).stderr_to_stdout().read())
+        .await??;
     let mut map = HashMap::new();
     for line in out.lines() {
         if let Some((n, v)) = line.split_once(' ') {
@@ -109,7 +109,10 @@ pub fn split_repo_vs_aur(pkgs: &[String]) -> Result<(Vec<String>, Vec<String>)> 
         // If pacman -Si finds it in a repo, treat as repo; else assume AUR
         let res = cmd(
             "bash",
-            ["-lc", &format!("sudo {} -Si -- {}",pacman, shell_escape(p))],
+            [
+                "-lc",
+                &format!("sudo {} -Si -- {}", pacman, shell_escape(p)),
+            ],
         )
         .stdout_capture()
         .stderr_null()
