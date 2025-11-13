@@ -36,6 +36,7 @@ async fn main() -> Result<()> {
         .arg(Arg::new("refresh").short('y').action(ArgAction::Count).help("Refresh databases (can be doubled, like -yy)"))
         .arg(Arg::new("sysupgrade").short('u').action(ArgAction::SetTrue).help("System upgrade"))
         .arg(Arg::new("print_updates").short('P').action(ArgAction::SetTrue).help("Print list of packages that need to be upgraded"))
+        .arg(Arg::new("clone_package_base").short('G').action(ArgAction::SetTrue).help("Clone package base"))
         .arg(Arg::new("noconfirm").long("noconfirm").action(ArgAction::SetTrue).help("No confirm mode (pacman -U --noconfirm)"))
         .arg(Arg::new("args").num_args(0..).trailing_var_arg(true).allow_hyphen_values(true).help("Additional pacman-like args or package names"))
         .get_matches();
@@ -47,6 +48,7 @@ async fn main() -> Result<()> {
     let ycount = matches.get_count("refresh");
     let sysupgrade = matches.get_flag("sysupgrade");
     let print_updates = matches.get_flag("print_updates");
+    let just_clone = matches.get_flag("clone_package_base");
     let args: Vec<String> = matches
         .get_many::<String>("args")
         .map(|v| v.map(|s| s.to_string()).collect())
@@ -59,6 +61,7 @@ async fn main() -> Result<()> {
 
         return handle_print_updates(&cfg, forcerefresh).await;
     }
+    if just_clone || args.iter().any(|a| a == "-G") {}
 
     // Special handling for -Scc: run pacman cache clean, then wipe our cache contents (keep dir)
     if args.iter().any(|a| a == "-Scc") {
@@ -181,7 +184,7 @@ fn classify_sync_targets(cfg: &Config, pkgs: &[String]) -> Result<(Vec<String>, 
     Ok((repo_pkgs, aur_pkgs))
 }
 
-async fn handle_print_updates(_cfg: &Config, forcerefresh: bool) -> Result<()> {
+async fn handle_print_updates(cfg: &Config, forcerefresh: bool) -> Result<()> {
     let client = Client::builder().user_agent("aurwrap/0.1").build()?;
 
     // Get outdated AUR packages
@@ -189,7 +192,7 @@ async fn handle_print_updates(_cfg: &Config, forcerefresh: bool) -> Result<()> {
     let mut aur_updates = Vec::<PackageUpdate>::new();
 
     if !foreign.is_empty() {
-        let infos = aur::aur_info_batch(&client, foreign.keys().cloned().collect())?;
+        let infos = aur::aur_info_batch(cfg, &client, foreign.keys().cloned().collect())?;
         for (name, curver) in foreign.iter() {
             if let Some(info) = infos.get(name) {
                 if let Ok(ord) = pac::vercmp(curver, &info.version).await {
@@ -339,7 +342,7 @@ async fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatc
 
     // Query AUR for latest versions
     let client = Client::builder().user_agent("aurwrap/0.1").build()?;
-    let infos = aur::aur_info_batch(&client, foreign.keys().cloned().collect())?; // name -> AurInfo
+    let infos = aur::aur_info_batch(cfg, &client, foreign.keys().cloned().collect())?; // name -> AurInfo
 
     // Collect outdated (AUR version strictly newer than installed using pacman's vercmp)
     let mut outdated: Vec<Pickable> = vec![];
@@ -378,7 +381,7 @@ async fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatc
     }
 
     // Resolve dependencies and build order for selected updates (by package names)
-    let order = aur::resolve_build_order(&client, &selection)?;
+    let order = aur::resolve_build_order(cfg, &client, &selection)?;
     let temp_path = cfg.temp_dir();
     clean_dir_contents(&temp_path)?; // start with a clean temp each run
 
@@ -388,7 +391,7 @@ async fn handle_sysupgrade(cfg: &Config, ycount: u8, arg_matches: &clap::ArgMatc
     let mut built_ok: Vec<String> = vec![]; // track by pkgbase
 
     // Group targets by AUR pkgbase: only clone/build unique pkgbase repos
-    let info_for_order = aur::aur_info_batch(&client, order.clone())?; // name -> AurInfo
+    let info_for_order = aur::aur_info_batch(cfg, &client, order.clone())?; // name -> AurInfo
     let mut seen_base: HashSet<String> = HashSet::new();
     let mut pkgbases: Vec<String> = vec![];
     for name in &order {
@@ -554,7 +557,7 @@ fn handle_sync(cfg: &Config, pkgs: &[String], arg_matches: &clap::ArgMatches) ->
     let client = Client::builder().user_agent("aurwrap/0.1").build()?;
     let requested_names: Vec<String> = aur_requests.iter().map(|req| req.name.clone()).collect();
     // Determine AUR availability up-front to report unfound
-    let info_map = aur::aur_info_batch(&client, requested_names)?;
+    let info_map = aur::aur_info_batch(cfg, &client, requested_names)?;
     let unfound: Vec<String> = aur_requests
         .iter()
         .filter(|req| !info_map.contains_key(&req.name))
@@ -566,7 +569,7 @@ fn handle_sync(cfg: &Config, pkgs: &[String], arg_matches: &clap::ArgMatches) ->
         .map(|req| req.name.clone())
         .collect();
 
-    let build_order = aur::resolve_build_order(&client, &available)?;
+    let build_order = aur::resolve_build_order(cfg, &client, &available)?;
     let temp_path = cfg.temp_dir();
     clean_dir_contents(&temp_path)?;
     // Track failures by pkgbase
@@ -575,7 +578,7 @@ fn handle_sync(cfg: &Config, pkgs: &[String], arg_matches: &clap::ArgMatches) ->
     let mut built_ok: Vec<String> = vec![];
 
     // Group by pkgbase: only clone unique bases
-    let info_for_order = aur::aur_info_batch(&client, build_order.clone())?; // name -> AurInfo
+    let info_for_order = aur::aur_info_batch(cfg, &client, build_order.clone())?; // name -> AurInfo
     let mut seen_base: HashSet<String> = HashSet::new();
     let mut pkgbases: Vec<String> = vec![];
     for name in &build_order {

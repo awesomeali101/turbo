@@ -53,6 +53,10 @@ editor=nvim
 file_manager=nnn
 # mirror: aur | github
 mirror=aur
+# pacman_cmd: pacman | chaos | yay | ...
+pacman_cmd=pacman
+# sudo_cmd: sudo | sudo-rs | ...
+sudo_cmd=sudo
 # mirror_base: when mirror=github, base URL for repos
 # mirror_base=https://github.com/archlinux-aur
 EOF

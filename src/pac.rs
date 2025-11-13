@@ -1,11 +1,20 @@
+use crate::config::Config;
 use crate::style::*;
 use anyhow::{anyhow, Result};
 use duct::cmd;
 use std::collections::HashMap;
+use std::sync::{LazyLock, OnceLock};
 use tokio::task;
 
+static PACMAN: OnceLock<String> = OnceLock::new();
+
+pub fn get_pacman() -> &'static str {
+    PACMAN.get_or_init(|| Config::load().unwrap().pacman)
+}
+
 pub async fn run_pacman(args: &[String]) -> Result<()> {
-    let mut full_args = vec![String::from("pacman")];
+    let pacman = get_pacman();
+    let mut full_args = vec![pacman.to_string()];
     full_args.extend(args.iter().cloned());
     let status =
         task::spawn_blocking(move || cmd("sudo", full_args).stderr_to_stdout().unchecked().run())
@@ -16,7 +25,7 @@ pub async fn run_pacman(args: &[String]) -> Result<()> {
             .code()
             .map(|code| code.to_string())
             .unwrap_or_else(|| String::from("terminated by signal"));
-        let message = format!("pacman {:?} exited with {}", args, exit_desc);
+        let message = format!("{} {:?} exited with {}", pacman, args, exit_desc);
         println!(
             "{} {} {}",
             warn_icon(),
@@ -28,9 +37,13 @@ pub async fn run_pacman(args: &[String]) -> Result<()> {
 }
 
 pub fn is_in_repo(name: &str) -> Result<bool> {
+    let pacman = get_pacman();
     let res = cmd(
         "bash",
-        ["-lc", &format!("sudo pacman -Si -- {}", shell_escape(name))],
+        [
+            "-lc",
+            &format!("sudo {} -Si -- {}", pacman, shell_escape(name)),
+        ],
     )
     .stdout_capture()
     .stderr_null()
@@ -41,6 +54,7 @@ pub fn is_in_repo(name: &str) -> Result<bool> {
 }
 
 pub async fn passthrough_to_pacman(args: &[String]) -> Result<bool> {
+    let pacman = get_pacman();
     if args.is_empty() {
         return Ok(false);
     }
@@ -49,7 +63,7 @@ pub async fn passthrough_to_pacman(args: &[String]) -> Result<bool> {
         "{} {} {}",
         info_icon(),
         pacman_badge(),
-        prompt().apply_to(format!("Running: sudo pacman {}", argstr).as_str())
+        prompt().apply_to(format!("Running: sudo {} {}", pacman, argstr).as_str())
     );
     let owned = args.to_vec();
     run_pacman(&owned).await?;
@@ -58,8 +72,9 @@ pub async fn passthrough_to_pacman(args: &[String]) -> Result<bool> {
 
 pub async fn list_foreign_packages() -> Result<HashMap<String, String>> {
     // pacman -Qm : foreign; we'll get name and version
-    let out =
-        task::spawn_blocking(|| cmd("sudo", ["pacman", "-Qm"]).stderr_to_stdout().read()).await??;
+    let pacman = get_pacman();
+    let out = task::spawn_blocking(move || cmd("sudo", [pacman, "-Qm"]).stderr_to_stdout().read())
+        .await??;
     let mut map = HashMap::new();
     for line in out.lines() {
         if let Some((n, v)) = line.split_once(' ') {
@@ -87,13 +102,17 @@ pub async fn vercmp(a: &str, b: &str) -> Result<i32> {
 }
 
 pub fn split_repo_vs_aur(pkgs: &[String]) -> Result<(Vec<String>, Vec<String>)> {
+    let pacman = get_pacman();
     let mut repo = vec![];
     let mut aur = vec![];
     for p in pkgs {
         // If pacman -Si finds it in a repo, treat as repo; else assume AUR
         let res = cmd(
             "bash",
-            ["-lc", &format!("sudo pacman -Si -- {}", shell_escape(p))],
+            [
+                "-lc",
+                &format!("sudo {} -Si -- {}", pacman, shell_escape(p)),
+            ],
         )
         .stdout_capture()
         .stderr_null()
@@ -133,7 +152,8 @@ fn sudo_pacman_U_inner(zsts: &[String], noconfirm: bool) -> Result<()> {
         args.push(z.as_str());
     }
 
-    let command_str = format!("Running: sudo pacman {}", args.join(" "));
+    let pacman = get_pacman();
+    let command_str = format!("Running: sudo {} {}", pacman, args.join(" "));
     println!(
         "{} {} {}",
         info_icon(),
@@ -142,7 +162,7 @@ fn sudo_pacman_U_inner(zsts: &[String], noconfirm: bool) -> Result<()> {
     );
     let status = cmd(
         "sudo",
-        ["pacman"]
+        [pacman]
             .into_iter()
             .chain(args.iter().copied())
             .collect::<Vec<_>>(),
@@ -150,7 +170,7 @@ fn sudo_pacman_U_inner(zsts: &[String], noconfirm: bool) -> Result<()> {
     .stderr_to_stdout()
     .run()?;
     if !status.status.success() {
-        return Err(anyhow!("sudo pacman -U failed"));
+        return Err(anyhow!("sudo {} -U failed", pacman));
     }
     Ok(())
 }
@@ -167,7 +187,8 @@ pub fn install_repo_packages(repo: &[String], noconfirm: bool) -> Result<()> {
         args.push(r.as_str());
     }
 
-    let command_str = format!("Running: sudo pacman {}", args.join(" "));
+    let pacman = get_pacman();
+    let command_str = format!("Running: sudo {} {}", pacman, args.join(" "));
     println!(
         "{} {} {}",
         info_icon(),
@@ -176,7 +197,7 @@ pub fn install_repo_packages(repo: &[String], noconfirm: bool) -> Result<()> {
     );
     let status = cmd(
         "sudo",
-        ["pacman"]
+        [pacman]
             .into_iter()
             .chain(args.iter().copied())
             .collect::<Vec<_>>(),
@@ -184,15 +205,16 @@ pub fn install_repo_packages(repo: &[String], noconfirm: bool) -> Result<()> {
     .stderr_to_stdout()
     .run()?;
     if !status.status.success() {
-        return Err(anyhow!("sudo pacman -S (repo) failed"));
+        return Err(anyhow!("sudo {} -S (repo) failed", pacman));
     }
     Ok(())
 }
 
 pub fn sudo_pacman_scc() -> Result<()> {
-    let status = cmd("sudo", ["pacman", "-Scc"]).stderr_to_stdout().run()?;
+    let pacman = get_pacman();
+    let status = cmd("sudo", [pacman, "-Scc"]).stderr_to_stdout().run()?;
     if !status.status.success() {
-        return Err(anyhow!("sudo pacman -Scc failed"));
+        return Err(anyhow!("sudo {} -Scc failed", pacman));
     }
     Ok(())
 }
@@ -203,6 +225,7 @@ pub async fn list_outdated_pacman_packages(
     // pacman -Qu outputs: "package_name old_version -> new_version"
     // We need to get both old (installed) and new (available) versions
     //
+    let pacman = get_pacman();
     let mut refresh_arg = String::from("-Sy");
     if forcerefresh {
         refresh_arg = String::from("-Syy")
@@ -211,8 +234,8 @@ pub async fn list_outdated_pacman_packages(
     if !passthrough_to_pacman(&refresh_args).await? {
         return Ok(vec![]);
     }
-    let out = task::spawn_blocking(|| {
-        cmd("pacman", ["-Qu"])
+    let out = task::spawn_blocking(move || {
+        cmd("sudo", [pacman, "-Qu"])
             .stdout_capture()
             .stderr_null()
             .unchecked()

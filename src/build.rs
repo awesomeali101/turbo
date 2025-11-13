@@ -15,7 +15,9 @@ pub enum AurSource {
 
 impl AurSource {
     pub fn from_cfg(cfg: &Config) -> Self {
-        if cfg.aur_mirror.eq_ignore_ascii_case("github") {
+        if cfg.aur_mirror.eq_ignore_ascii_case("github")
+            || cfg.aur_mirror.eq_ignore_ascii_case("github-aur")
+        {
             AurSource::Github
         } else {
             AurSource::Official
@@ -303,5 +305,7 @@ pub fn clean_dir_contents(dir: &Path) -> Result<()> {
 
 pub fn clean_cache(cfg: &Config) -> Result<()> {
     fs::create_dir_all(cfg.cache_dir())?;
-    clean_dir_contents(&cfg.cache_dir())
+    cmd("sudo", ["rm", "-rf", cfg.temp_dir().to_str().unwrap()]).run()?;
+    println!("{} Cache cleaned", cfg.temp_dir().display());
+    Ok(())
 }

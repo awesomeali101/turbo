@@ -8,9 +8,11 @@ pub struct Config {
     pub editor: String,              // default nvim or nano
     pub file_manager: String,        // default nnn or lf
     pub root_dir_name: String,       // e.g., "helpername"
-    pub aur_mirror: String,          // "aur" (default) or "github"
+    pub aur_mirror: String,          // "aur" (default) or "github-aur"
     pub mirror_base: Option<String>, // optional custom base when using github mirror
     pub noconfirm: bool,
+    pub pacman: String,
+    pub sudo: String,
 }
 
 impl Default for Config {
@@ -22,6 +24,8 @@ impl Default for Config {
             aur_mirror: "aur".to_string(),
             mirror_base: None,
             noconfirm: false,
+            pacman: "pacman".to_string(),
+            sudo: "sudo".to_string(),
         }
     }
 }
@@ -57,6 +61,16 @@ impl Config {
                 cfg.mirror_base = Some(b);
             }
         }
+        if let Ok(pc) = std::env::var("AURWRAP_PACMAN") {
+            if !pc.trim().is_empty() {
+                cfg.pacman = pc;
+            }
+        }
+        if let Ok(s) = std::env::var("AURWRAP_SUDO") {
+            if !s.trim().is_empty() {
+                cfg.sudo = s;
+            }
+        }
         // Config file: ~/.config/aurwrap/config.toml
         if let Some(home) = home_dir() {
             let path = home.join(".config/aurwrap/config.toml");
@@ -81,6 +95,12 @@ impl Config {
                     if let Some(t) = value.get("noconfirm").and_then(|v| v.as_str()) {
                         cfg.noconfirm = t.to_lowercase() == "true";
                     }
+                    if let Some(t) = value.get("pacman").and_then(|v| v.as_str()) {
+                        cfg.pacman = t.to_string();
+                    }
+                    if let Some(t) = value.get("sudo").and_then(|v| v.as_str()) {
+                        cfg.sudo = t.to_string();
+                    }
                 }
             }
         }
@@ -103,6 +123,8 @@ impl Config {
                                 "file_manager" => cfg.file_manager = v.to_string(),
                                 "mirror" => cfg.aur_mirror = v.to_lowercase(),
                                 "mirror_base" => cfg.mirror_base = Some(v.to_string()),
+                                "pacman_cmd" => cfg.pacman = v.to_string(),
+                                "sudo_cmd" => cfg.sudo = v.to_string(),
                                 _ => {}
                             }
                         }
@@ -135,6 +157,16 @@ impl Config {
         if let Ok(b) = std::env::var("AURWRAP_MIRROR_BASE") {
             if !b.trim().is_empty() {
                 cfg.mirror_base = Some(b);
+            }
+        }
+        if let Ok(pc) = std::env::var("AURWRAP_PACMAN") {
+            if !pc.trim().is_empty() {
+                cfg.pacman = pc;
+            }
+        }
+        if let Ok(s) = std::env::var("AURWRAP_SUDO") {
+            if !s.trim().is_empty() {
+                cfg.sudo = s;
             }
         }
         Ok(cfg)
